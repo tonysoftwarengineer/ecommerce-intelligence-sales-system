@@ -4,6 +4,7 @@ from pydantic import BaseModel
 class MonthlyRevenue(BaseModel):
     month: str
     revenue: float
+    is_partial: bool
 
 
 class CategoryRevenue(BaseModel):

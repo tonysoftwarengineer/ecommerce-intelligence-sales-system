@@ -1,0 +1,62 @@
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+
+:root {
+  /* Surfaces — base in the #0E–#1A range, never pure black (halation).
+     Each step ~3-6% lighter than the last. */
+  --bg: #0d0d10;
+  --surface: #16161a;
+  --surface-hover: #1a1a1f;
+  --elevated: #1e1e24;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.12);
+
+  /* Text — 85-92% white, never pure #fff */
+  --text-primary: rgba(255, 255, 255, 0.92);
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  --text-muted: rgba(255, 255, 255, 0.38);
+
+  /* Data — validated against surface #1a1a19 via validate_palette.js */
+  --series-1: #3987e5;
+  --seg-1: #3987e5;
+  --seg-2: #d95926;
+  --seg-3: #199e70;
+  --seg-4: #c98500;
+
+  --positive: #199e70;
+  --negative: #d95926;
+
+  --grid: rgba(255, 255, 255, 0.06);
+
+  --radius: 10px;
+  --radius-sm: 6px;
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+}
+
+body {
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv11", "ss01";
+}
+
+#root {
+  min-height: 100vh;
+}

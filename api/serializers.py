@@ -2,11 +2,18 @@ from collections import Counter
 
 import pandas as pd
 
+from src.models.forecast import partial_months
 from src.stages.report import relabel_state_names, relabel_unknown_category
 
 
 def month_series_to_records(series: pd.Series) -> list:
-    return [{"month": str(period), "revenue": float(value)} for period, value in series.items()]
+    # The "which months are unreliable" rule lives in src/models/forecast.py,
+    # shared with the forecast's edge trimming -- not duplicated here.
+    partial = partial_months(series)
+    return [
+        {"month": str(period), "revenue": float(value), "is_partial": period in partial}
+        for period, value in series.items()
+    ]
 
 
 def category_series_to_records(series: pd.Series) -> list:
