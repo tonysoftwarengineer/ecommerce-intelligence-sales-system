@@ -1,0 +1,40 @@
+# Raw data (large, re-downloadable via kagglehub; never commit)
+data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.coverage
+*.egg-info/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# ML model artifacts (V3) — not source
+models/artifacts/
+model_artifacts/
+*.pkl
+*.joblib
+*.h5
+
+# Backend secrets (V4)
+.env
+*.env.local
+
+# Frontend (V5)
+frontend/node_modules/
+frontend/dist/
+node_modules/
+
+# Kaggle credentials — safety net
+kaggle.json
+.kaggle/
+
+# OS / editor noise
+.DS_Store
+.vscode/
+.idea/
