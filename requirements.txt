@@ -10,6 +10,7 @@ scikit-learn
 # --- V4: FastAPI backend ---
 fastapi
 uvicorn[standard]
+httpx  # required by fastapi.testclient.TestClient
 
 # NOTE: versions above are hand-picked for what's already installed and verified.
 # Once V3/V4/V5 are fully installed, regenerate this file for real with:
