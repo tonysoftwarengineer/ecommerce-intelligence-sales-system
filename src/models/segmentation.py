@@ -21,10 +21,15 @@ def compute_rfm(df: pd.DataFrame, snapshot_date: pd.Timestamp = None) -> pd.Data
 
 
 def cluster_customers(rfm: pd.DataFrame, n_clusters: int = DEFAULT_N_CLUSTERS, random_state: int = 42) -> pd.DataFrame:
+    # monetary and frequency are both heavily right-skewed here (frequency:
+    # median 1, max 16; monetary: median ~R$90, max ~R$13,440) -- log1p both
+    # consistently, so a small tail of repeat/high-spend customers doesn't
+    # dominate the Euclidean distance KMeans uses. recency (a day count) is
+    # not similarly skewed, so it's left untransformed.
     features = pd.DataFrame(
         {
             "recency": rfm["recency"],
-            "frequency": rfm["frequency"],
+            "log_frequency": np.log1p(rfm["frequency"]),
             "log_monetary": np.log1p(rfm["monetary"]),
         }
     )
@@ -67,6 +72,22 @@ def label_segments(clustered: pd.DataFrame) -> pd.DataFrame:
     result = clustered.copy()
     result["segment_label"] = result["cluster"].map(labels)
     return result
+
+
+def segment_centroid_profile(labeled: pd.DataFrame) -> pd.DataFrame:
+    """
+    Per-segment-label mean recency/frequency/monetary and customer count --
+    for a human to actually eyeball and confirm "High Value" really looks
+    high-value, "At Risk" really looks at-risk, etc., rather than trusting
+    the labeling logic worked correctly by construction.
+    """
+    profile = labeled.groupby("segment_label").agg(
+        customer_count=("segment_label", "count"),
+        avg_recency=("recency", "mean"),
+        avg_frequency=("frequency", "mean"),
+        avg_monetary=("monetary", "mean"),
+    )
+    return profile.sort_values("avg_monetary", ascending=False)
 
 
 def segment_customers(df: pd.DataFrame, n_clusters: int = DEFAULT_N_CLUSTERS) -> pd.DataFrame:
