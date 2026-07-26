@@ -1,0 +1,17 @@
+# --- Core pipeline (installed & verified) ---
+pandas>=2.3.3
+kagglehub>=0.3.13
+matplotlib>=3.9.4
+pytest>=7.0
+
+# --- V3: forecasting + customer segmentation ---
+scikit-learn
+
+# --- V4: FastAPI backend ---
+fastapi
+uvicorn[standard]
+
+# NOTE: versions above are hand-picked for what's already installed and verified.
+# Once V3/V4/V5 are fully installed, regenerate this file for real with:
+#   pip freeze > requirements.txt
+# and replace this file wholesale so every transitive dependency is pinned exactly.
