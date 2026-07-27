@@ -18,7 +18,9 @@ def month_series_to_records(series: pd.Series) -> list:
 
 def category_series_to_records(series: pd.Series) -> list:
     labeled = relabel_unknown_category(series)
-    return [{"category": str(category), "revenue": float(value)} for category, value in labeled.items()]
+    return [
+        {"category": str(category), "revenue": float(value)} for category, value in labeled.items()
+    ]
 
 
 def customer_series_to_records(series: pd.Series) -> list:
@@ -41,7 +43,9 @@ def report_to_response_dict(analysis: dict) -> dict:
         "total_revenue": float(analysis["total_revenue"]),
         "average_order_value": float(analysis["average_order_value"]),
         "revenue_by_month": month_series_to_records(analysis["revenue_by_month"]),
-        "top_categories_by_revenue": category_series_to_records(analysis["top_categories_by_revenue"]),
+        "top_categories_by_revenue": category_series_to_records(
+            analysis["top_categories_by_revenue"]
+        ),
         "top_customers_by_spend": customer_series_to_records(analysis["top_customers_by_spend"]),
         "revenue_by_state": state_series_to_records(analysis["revenue_by_state"]),
     }

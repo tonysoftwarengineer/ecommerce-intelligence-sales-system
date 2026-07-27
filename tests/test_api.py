@@ -1,10 +1,12 @@
 from unittest.mock import patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 import api.main as api_main
 
 
+@pytest.mark.integration
 def test_report_endpoint_survives_forecast_failure():
     # Patched where it's *used* (api.main), not where it's defined
     # (src.models.forecast) -- standard mocking practice. TestClient as a
@@ -19,6 +21,7 @@ def test_report_endpoint_survives_forecast_failure():
     assert forecast_response.status_code == 503
 
 
+@pytest.mark.integration
 def test_partial_months_are_flagged():
     # The 3 dataset-boundary months (collection started/stopped mid-month)
     # must be flagged so the frontend can exclude them from the trend chart,
@@ -30,6 +33,7 @@ def test_partial_months_are_flagged():
     assert flagged == {"2016-09", "2016-12", "2018-09"}
 
 
+@pytest.mark.integration
 def test_segments_endpoint_summarises_by_default():
     # Shipping all ~94k per-customer rows made this response ~12MB while the
     # dashboard only ever read the 4-row summary. Guard against regressing.
@@ -45,6 +49,7 @@ def test_segments_endpoint_summarises_by_default():
     assert len(detailed.json()["segments"]) > 1_000
 
 
+@pytest.mark.integration
 def test_cors_preflight_allows_localhost_origin():
     with TestClient(api_main.app) as client:
         response = client.options(

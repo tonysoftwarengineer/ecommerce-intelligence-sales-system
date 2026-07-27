@@ -18,7 +18,9 @@ def download_to_local_data_dir() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     if _all_tables_present():
-        logger.debug("All %d tables already present in %s, skipping download", len(TABLE_FILES), DATA_DIR)
+        logger.debug(
+            "All %d tables already present in %s, skipping download", len(TABLE_FILES), DATA_DIR
+        )
         return
 
     logger.info("Downloading %s via kagglehub (~43MB, first run only)", KAGGLE_DATASET)

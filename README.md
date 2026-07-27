@@ -132,3 +132,15 @@ Next: multi-dataset support (CSV upload + schema mapping), LLM report narration,
 ## Data & license
 
 Dataset: ["Brazilian E-Commerce Public Dataset by Olist"](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce) on Kaggle. See the Kaggle page for license terms.
+
+## Development
+
+```bash
+ruff check .              # lint
+ruff format .             # format
+mypy .                    # type check
+pytest -q                 # all tests
+pytest -q -m "not integration"   # unit tests only (~2s, no data needed)
+```
+
+Tests marked `integration` build the real dataset, so they're slower and need network on first run. CI runs the unit subset plus lint, format, types, and a frontend typecheck/build.

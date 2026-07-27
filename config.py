@@ -16,9 +16,7 @@ CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",")
 
 # Any localhost port, because Vite falls back 5173 -> 5174 -> ... when a port
 # is taken, and hardcoding one would break the dev server unpredictably.
-CORS_ORIGIN_REGEX = os.environ.get(
-    "CORS_ORIGIN_REGEX", r"http://(localhost|127\.0\.0\.1):\d+"
-)
+CORS_ORIGIN_REGEX = os.environ.get("CORS_ORIGIN_REGEX", r"http://(localhost|127\.0\.0\.1):\d+")
 
 TABLE_FILES = {
     "orders": "olist_orders_dataset.csv",

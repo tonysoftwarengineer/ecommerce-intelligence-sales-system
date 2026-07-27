@@ -5,15 +5,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from api.cache import cache
+from api.routes import router
 from config import CORS_ORIGIN_REGEX, CORS_ORIGINS
 from src.logging_config import setup_logging
 from src.models.forecast import forecast_linear_trend
 from src.models.segmentation import segment_customers_as_records
 from src.pipeline import build_dataset
 from src.stages.analyze import run_analysis
-
-from api.cache import cache
-from api.routes import router
 
 setup_logging()
 logger = logging.getLogger(__name__)

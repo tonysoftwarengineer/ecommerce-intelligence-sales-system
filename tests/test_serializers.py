@@ -8,10 +8,19 @@ from api.serializers import (
 
 
 def test_segment_summary_aggregates_per_label():
+    def customer(cid, label, recency, frequency, monetary):
+        return {
+            "customer_unique_id": cid,
+            "segment_label": label,
+            "recency": recency,
+            "frequency": frequency,
+            "monetary": monetary,
+        }
+
     segments = [
-        {"customer_unique_id": "a", "segment_label": "High Value", "recency": 10.0, "frequency": 3.0, "monetary": 300.0},
-        {"customer_unique_id": "b", "segment_label": "High Value", "recency": 20.0, "frequency": 1.0, "monetary": 100.0},
-        {"customer_unique_id": "c", "segment_label": "At Risk", "recency": 400.0, "frequency": 1.0, "monetary": 50.0},
+        customer("a", "High Value", 10.0, 3.0, 300.0),
+        customer("b", "High Value", 20.0, 1.0, 100.0),
+        customer("c", "At Risk", 400.0, 1.0, 50.0),
     ]
     summary = {row["segment_label"]: row for row in segment_summary_records(segments)}
 

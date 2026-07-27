@@ -18,6 +18,8 @@ scikit-learn==1.6.1
 fastapi==0.128.8
 uvicorn[standard]==0.39.0
 
-# --- Test ---
+# --- Test + tooling ---
 pytest==8.4.2
 httpx==0.28.1          # required by fastapi.testclient.TestClient
+ruff==0.16.0           # lint + format
+mypy==1.19.1           # static type checking

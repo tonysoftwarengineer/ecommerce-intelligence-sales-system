@@ -37,7 +37,9 @@ def partial_months(
     return set(revenue_by_month.index[revenue_by_month < threshold])
 
 
-def trim_edge_artifacts(revenue_by_month: pd.Series, threshold_ratio: float = EDGE_TRIM_THRESHOLD_RATIO) -> pd.Series:
+def trim_edge_artifacts(
+    revenue_by_month: pd.Series, threshold_ratio: float = EDGE_TRIM_THRESHOLD_RATIO
+) -> pd.Series:
     series = revenue_by_month.copy()
     threshold = threshold_ratio * series.median()
 
@@ -127,7 +129,7 @@ def rolling_backtest_error(
     reflects more than one lucky/unlucky pair of months.
     """
     series = trim_edge_artifacts(revenue_by_month)
-    pooled_results = []
+    pooled_results: list = []
 
     for split in range(n_splits):
         end_idx = len(series) - split
@@ -172,5 +174,7 @@ def evaluate_window_sizes(
         metrics = rolling_backtest_error(
             revenue_by_month, window_months=window, holdout=holdout, n_splits=n_splits
         )
-        results.append({"window_months": window if window is not None else "full_history", **metrics})
+        results.append(
+            {"window_months": window if window is not None else "full_history", **metrics}
+        )
     return sorted(results, key=lambda r: r["mape_percent"])

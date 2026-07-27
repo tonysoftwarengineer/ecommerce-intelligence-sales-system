@@ -466,6 +466,32 @@
   color: var(--text-secondary);
 }
 
+/* Used by both the API-unreachable state and the render error boundary. */
+.status--error .status__title {
+  color: var(--negative);
+}
+
+.status--error {
+  border-top: 2px solid var(--negative);
+}
+
+.status__button {
+  margin-top: 4px;
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  background: var(--elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 7px 16px;
+  cursor: pointer;
+  transition: background-color 160ms var(--ease);
+}
+
+.status__button:hover {
+  background: var(--surface-hover);
+}
+
 .status__title {
   color: var(--text-primary);
   font-size: 1.05rem;

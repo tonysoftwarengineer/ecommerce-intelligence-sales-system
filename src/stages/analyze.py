@@ -29,10 +29,7 @@ def top_categories_by_revenue(df: pd.DataFrame, n: int = 10) -> pd.Series:
 
 def top_customers_by_spend(df: pd.DataFrame, n: int = 10) -> pd.Series:
     return (
-        df.groupby("customer_unique_id")[REVENUE_COLUMN]
-        .sum()
-        .sort_values(ascending=False)
-        .head(n)
+        df.groupby("customer_unique_id")[REVENUE_COLUMN].sum().sort_values(ascending=False).head(n)
     )
 
 

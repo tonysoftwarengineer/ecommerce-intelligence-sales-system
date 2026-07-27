@@ -20,7 +20,9 @@ def compute_rfm(df: pd.DataFrame, snapshot_date: pd.Timestamp = None) -> pd.Data
     return grouped[["recency", "frequency", "monetary"]]
 
 
-def cluster_customers(rfm: pd.DataFrame, n_clusters: int = DEFAULT_N_CLUSTERS, random_state: int = 42) -> pd.DataFrame:
+def cluster_customers(
+    rfm: pd.DataFrame, n_clusters: int = DEFAULT_N_CLUSTERS, random_state: int = 42
+) -> pd.DataFrame:
     # monetary and frequency are both heavily right-skewed here (frequency:
     # median 1, max 16; monetary: median ~R$90, max ~R$13,440) -- log1p both
     # consistently, so a small tail of repeat/high-spend customers doesn't

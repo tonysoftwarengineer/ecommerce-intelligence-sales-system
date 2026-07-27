@@ -1,0 +1,30 @@
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes (unused imports/variables, undefined names)
+    "W",   # pycodestyle warnings
+    "I",   # import sorting
+    "UP",  # pyupgrade
+    "B",   # bugbear (likely bugs, e.g. mutable default args)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["api", "config", "src"]
+
+[tool.mypy]
+python_version = "3.9"
+# pandas/sklearn/kagglehub ship no usable stubs; type-checking our own code is
+# the goal, not vendoring third-party type definitions.
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: builds the real dataset (slow, needs network on first run)",
+]

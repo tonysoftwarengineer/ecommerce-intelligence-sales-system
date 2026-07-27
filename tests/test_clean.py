@@ -9,7 +9,7 @@ def test_clean_orders_keeps_only_fulfilled_statuses():
     df = pd.DataFrame(
         {
             "order_status": ["delivered", "shipped", "canceled", "unavailable", "processing"],
-            "order_purchase_timestamp": ["2018-01-0%d 10:00:00" % i for i in range(1, 6)],
+            "order_purchase_timestamp": [f"2018-01-0{i} 10:00:00" for i in range(1, 6)],
         }
     )
     result = clean_orders(df)

@@ -71,7 +71,7 @@ def test_labels_are_derived_from_centroids_not_cluster_numbers():
     labelled = label_segments(clustered)
     by_cluster = dict(zip(labelled["cluster"], labelled["segment_label"]))
 
-    assert by_cluster[1] == "High Value"       # frequent + high spend
-    assert by_cluster[0] == "At Risk"          # far and away the stalest
-    assert by_cluster[2] == "New/Occasional"   # lowest spend and frequency
+    assert by_cluster[1] == "High Value"  # frequent + high spend
+    assert by_cluster[0] == "At Risk"  # far and away the stalest
+    assert by_cluster[2] == "New/Occasional"  # lowest spend and frequency
     assert len(set(by_cluster.values())) == 4  # every label used exactly once
