@@ -1,18 +1,23 @@
-# --- Core pipeline (installed & verified) ---
-pandas>=2.3.3
-kagglehub>=0.3.13
-matplotlib>=3.9.4
-pytest>=7.0
+# Exact pins, not floors.
+#
+# This is an application, not a library. A library should accept a range so it
+# can coexist with whatever its consumer already has installed; an application
+# has no consumers to coexist with, so it should reproduce the exact environment
+# that was actually tested. `pandas>=2.3.3` would happily install pandas 3.0 and
+# break silently -- these versions are the ones the test suite is green against.
 
-# --- V3: forecasting + customer segmentation ---
-scikit-learn
+# --- Core pipeline ---
+pandas==2.3.3
+kagglehub==0.3.13
+matplotlib==3.9.4
 
-# --- V4: FastAPI backend ---
-fastapi
-uvicorn[standard]
-httpx  # required by fastapi.testclient.TestClient
+# --- Forecasting + customer segmentation ---
+scikit-learn==1.6.1
 
-# NOTE: versions above are hand-picked for what's already installed and verified.
-# Once V3/V4/V5 are fully installed, regenerate this file for real with:
-#   pip freeze > requirements.txt
-# and replace this file wholesale so every transitive dependency is pinned exactly.
+# --- API ---
+fastapi==0.128.8
+uvicorn[standard]==0.39.0
+
+# --- Test ---
+pytest==8.4.2
+httpx==0.28.1          # required by fastapi.testclient.TestClient
