@@ -89,9 +89,15 @@ The dataset is built once during app startup and cached in memory; requests are 
 
 ## Configuration
 
+All settings have working local defaults — deploying should never require editing source.
+
 | Variable | Default | Purpose |
 |---|---|---|
 | `LOG_LEVEL` | `INFO` | Logging verbosity |
+| `DATA_DIR` | `./data` | Where the CSVs are stored |
+| `KAGGLE_DATASET` | `olistbr/brazilian-ecommerce` | Dataset to download |
+| `CORS_ORIGINS` | *(empty)* | Comma-separated exact origins for production, e.g. `https://dashboard.example.com` |
+| `CORS_ORIGIN_REGEX` | any `localhost` port | Dev fallback, used only when `CORS_ORIGINS` is empty |
 
 ## Tests
 

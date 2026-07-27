@@ -11,13 +11,13 @@ async function fetchJson<T>(path: string): Promise<T> {
 }
 
 export function fetchReport(): Promise<ReportResponse> {
-  return fetchJson<ReportResponse>("/api/report");
+  return fetchJson<ReportResponse>("/api/v1/report");
 }
 
 export function fetchForecast(): Promise<ForecastResponse> {
-  return fetchJson<ForecastResponse>("/api/forecast");
+  return fetchJson<ForecastResponse>("/api/v1/forecast");
 }
 
 export function fetchSegments(): Promise<SegmentsResponse> {
-  return fetchJson<SegmentsResponse>("/api/segments");
+  return fetchJson<SegmentsResponse>("/api/v1/segments");
 }

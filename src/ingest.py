@@ -11,11 +11,11 @@ logger = logging.getLogger(__name__)
 
 
 def _all_tables_present() -> bool:
-    return all((Path(DATA_DIR) / filename).exists() for filename in TABLE_FILES.values())
+    return all((DATA_DIR / filename).exists() for filename in TABLE_FILES.values())
 
 
 def download_to_local_data_dir() -> None:
-    Path(DATA_DIR).mkdir(parents=True, exist_ok=True)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     if _all_tables_present():
         logger.debug("All %d tables already present in %s, skipping download", len(TABLE_FILES), DATA_DIR)
@@ -25,7 +25,7 @@ def download_to_local_data_dir() -> None:
     cache_path = kagglehub.dataset_download(KAGGLE_DATASET)
     for filename in TABLE_FILES.values():
         source = Path(cache_path) / filename
-        destination = Path(DATA_DIR) / filename
+        destination = DATA_DIR / filename
         if not destination.exists():
             shutil.copy(source, destination)
 
@@ -33,7 +33,7 @@ def download_to_local_data_dir() -> None:
 def load_tables() -> dict[str, pd.DataFrame]:
     tables = {}
     for name, filename in TABLE_FILES.items():
-        file_path = Path(DATA_DIR) / filename
+        file_path = DATA_DIR / filename
         try:
             tables[name] = pd.read_csv(file_path)
         except Exception as e:

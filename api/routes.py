@@ -4,7 +4,7 @@ from api.cache import cache
 from api.schemas import ForecastResponse, HealthResponse, ReportResponse, SegmentsResponse
 from api.serializers import report_to_response_dict, segment_summary_records
 
-router = APIRouter(prefix="/api")
+router = APIRouter(prefix="/api/v1")
 
 
 @router.get("/health", response_model=HealthResponse)

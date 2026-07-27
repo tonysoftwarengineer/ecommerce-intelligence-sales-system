@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from config import CORS_ORIGIN_REGEX, CORS_ORIGINS
 from src.logging_config import setup_logging
 from src.models.forecast import forecast_linear_trend
 from src.models.segmentation import segment_customers_as_records
@@ -62,7 +63,10 @@ app = FastAPI(title="Ecommerce Sales Intelligence API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
+    # Explicit origins win when configured (production); otherwise fall back to
+    # the localhost regex so any Vite dev port works.
+    allow_origins=CORS_ORIGINS,
+    allow_origin_regex=None if CORS_ORIGINS else CORS_ORIGIN_REGEX,
     allow_credentials=False,
     allow_methods=["GET"],
     allow_headers=["*"],
