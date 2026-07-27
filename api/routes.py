@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 
 from api.cache import cache
 from api.schemas import ForecastResponse, HealthResponse, ReportResponse, SegmentsResponse
-from api.serializers import report_to_response_dict, segment_counts_to_records
+from api.serializers import report_to_response_dict, segment_summary_records
 
 router = APIRouter(prefix="/api")
 
@@ -32,10 +32,10 @@ def forecast():
 
 
 @router.get("/segments", response_model=SegmentsResponse)
-def segments():
+def segments(include_customers: bool = False):
     if cache.segments is None:
         raise HTTPException(status_code=503, detail="Segments not available")
     return {
-        "segments": cache.segments,
-        "segment_counts": segment_counts_to_records(cache.segments),
+        "segment_counts": segment_summary_records(cache.segments),
+        "segments": cache.segments if include_customers else [],
     }

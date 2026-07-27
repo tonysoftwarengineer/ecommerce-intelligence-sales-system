@@ -30,6 +30,21 @@ def test_partial_months_are_flagged():
     assert flagged == {"2016-09", "2016-12", "2018-09"}
 
 
+def test_segments_endpoint_summarises_by_default():
+    # Shipping all ~94k per-customer rows made this response ~12MB while the
+    # dashboard only ever read the 4-row summary. Guard against regressing.
+    with TestClient(api_main.app) as client:
+        default = client.get("/api/segments")
+        detailed = client.get("/api/segments?include_customers=true")
+
+    summary = default.json()
+    assert summary["segments"] == []
+    assert len(summary["segment_counts"]) == 4
+    assert len(default.content) < 2_000
+
+    assert len(detailed.json()["segments"]) > 1_000
+
+
 def test_cors_preflight_allows_localhost_origin():
     with TestClient(api_main.app) as client:
         response = client.options(

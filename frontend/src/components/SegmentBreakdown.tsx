@@ -1,7 +1,8 @@
-import type { SegmentCount } from "../types";
+import type { SegmentSummary } from "../types";
+import { formatCompact } from "../utils";
 
 interface SegmentBreakdownProps {
-  data: SegmentCount[];
+  data: SegmentSummary[];
 }
 
 // Fixed assignment order, never cycled. Validated against the dark surface
@@ -25,7 +26,7 @@ export function SegmentBreakdown({ data }: SegmentBreakdownProps) {
       <div className="card__head">
         <div>
           <h3 className="card__title">Customer Segments</h3>
-          <p className="card__sub">{total.toLocaleString()} customers, RFM + k-means</p>
+          <p className="card__sub">{total.toLocaleString()} customers · RFM + k-means</p>
         </div>
       </div>
 
@@ -42,21 +43,41 @@ export function SegmentBreakdown({ data }: SegmentBreakdownProps) {
         ))}
       </div>
 
-      <ul className="seglist">
-        {sorted.map((segment) => (
-          <li className="seglist__item" key={segment.segment_label}>
-            <span
-              className="seglist__dot"
-              style={{ background: COLORS[segment.segment_label] ?? "var(--text-muted)" }}
-            />
-            <span className="seglist__label">{segment.segment_label}</span>
-            <span className="seglist__pct">
-              {((segment.customer_count / total) * 100).toFixed(1)}%
-            </span>
-            <span className="seglist__count">{segment.customer_count.toLocaleString()}</span>
-          </li>
-        ))}
-      </ul>
+      <div className="segtable-scroll">
+        <table className="segtable">
+          <thead>
+            <tr>
+              <th>Segment</th>
+              <th>Share</th>
+              <th>Orders</th>
+              <th>Avg spend</th>
+              <th>Last seen</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((segment) => (
+              <tr key={segment.segment_label}>
+                <td className="segtable__name">
+                  <span
+                    className="seglist__dot"
+                    style={{ background: COLORS[segment.segment_label] ?? "var(--text-muted)" }}
+                  />
+                  {segment.segment_label}
+                </td>
+                <td>{((segment.customer_count / total) * 100).toFixed(1)}%</td>
+                <td>{segment.avg_frequency.toFixed(2)}</td>
+                <td>{formatCompact(segment.avg_monetary)}</td>
+                <td className="segtable__dim">{Math.round(segment.avg_recency)}d</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="segnote">
+        Only <strong>High Value</strong> customers order more than once — every other segment
+        averages a single order.
+      </p>
     </div>
   );
 }

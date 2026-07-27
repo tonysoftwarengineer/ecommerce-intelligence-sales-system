@@ -1,4 +1,4 @@
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { useReducedMotion } from "../hooks/useReducedMotion";
 import type { StateRevenue } from "../types";
@@ -17,6 +17,8 @@ export function StateBarChart({ data }: StateBarChartProps) {
   // so in the subtitle rather than cramming everything in.
   const rows = data.slice(0, TOP_N);
   const animate = !useReducedMotion();
+  const shown = rows.reduce((sum, r) => sum + r.revenue, 0);
+  const total = data.reduce((sum, r) => sum + r.revenue, 0);
 
   return (
     <div className="card">
@@ -24,38 +26,40 @@ export function StateBarChart({ data }: StateBarChartProps) {
         <div>
           <h3 className="card__title">Revenue by State</h3>
           <p className="card__sub">
-            Top {TOP_N} of {data.length} Brazilian states
+            Top {TOP_N} of {data.length} · {((shown / total) * 100).toFixed(0)}% of revenue
           </p>
         </div>
       </div>
 
-      <ResponsiveContainer width="100%" height={280}>
-        <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
-          <CartesianGrid stroke="rgba(255,255,255,0.06)" horizontal={false} />
-          <XAxis
-            type="number"
-            tick={{ fontSize: 11, fill: "rgba(255,255,255,0.38)" }}
-            tickLine={false}
-            axisLine={false}
-            tickFormatter={formatCompact}
-          />
+      <ResponsiveContainer width="100%" height={296}>
+        <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 62, bottom: 0, left: 0 }}>
+          <XAxis type="number" hide />
           <YAxis
             type="category"
             dataKey="state_name"
-            tick={{ fontSize: 11, fill: "rgba(255,255,255,0.6)" }}
+            tick={{ fontSize: 11.5, fill: "rgba(255,255,255,0.6)" }}
             tickLine={false}
             axisLine={false}
-            width={140}
+            width={138}
           />
           <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
           <Bar
             dataKey="revenue"
             fill="#3987e5"
             radius={[0, 4, 4, 0]}
-            barSize={14}
+            barSize={15}
             isAnimationActive={animate}
             animationDuration={800}
-          />
+          >
+            <LabelList
+              dataKey="revenue"
+              position="right"
+              offset={10}
+              formatter={(value: unknown) => formatCompact(Number(value))}
+              fill="rgba(255,255,255,0.55)"
+              fontSize={11}
+            />
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>

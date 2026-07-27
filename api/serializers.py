@@ -1,4 +1,4 @@
-from collections import Counter
+from collections import defaultdict
 
 import pandas as pd
 
@@ -47,6 +47,25 @@ def report_to_response_dict(analysis: dict) -> dict:
     }
 
 
-def segment_counts_to_records(segments: list) -> list:
-    counts = Counter(s["segment_label"] for s in segments)
-    return [{"segment_label": label, "customer_count": count} for label, count in counts.items()]
+def segment_summary_records(segments: list) -> list:
+    """
+    Per-segment counts plus mean RFM -- the centroid profile that makes the
+    labels interpretable (e.g. High Value is the only segment whose customers
+    order more than once). Summarising server-side keeps /api/segments at a
+    few hundred bytes instead of ~12MB of per-customer rows the dashboard
+    never reads.
+    """
+    grouped = defaultdict(list)
+    for segment in segments:
+        grouped[segment["segment_label"]].append(segment)
+
+    return [
+        {
+            "segment_label": label,
+            "customer_count": len(rows),
+            "avg_recency": round(sum(r["recency"] for r in rows) / len(rows), 1),
+            "avg_frequency": round(sum(r["frequency"] for r in rows) / len(rows), 2),
+            "avg_monetary": round(sum(r["monetary"] for r in rows) / len(rows), 2),
+        }
+        for label, rows in grouped.items()
+    ]

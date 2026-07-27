@@ -42,6 +42,7 @@
 .header__meta {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .chip {
@@ -71,6 +72,11 @@
   gap: 20px;
 }
 
+.hero > *,
+.grid > * {
+  min-width: 0;
+}
+
 @media (max-width: 940px) {
   .hero,
   .grid {
@@ -89,6 +95,31 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 22px 24px;
+  /* Grid/flex children default to min-width:auto and refuse to shrink below
+     their content — which is what let the Recharts containers push the whole
+     page wider than the viewport on narrow screens. */
+  min-width: 0;
+  transition:
+    border-color 220ms var(--ease),
+    background-color 220ms var(--ease),
+    transform 220ms var(--ease);
+}
+
+.card:hover,
+.kpi:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+  transform: translateY(-2px);
+}
+
+.kpi--hero:hover {
+  border-color: rgba(57, 135, 229, 0.32);
+}
+
+:focus-visible {
+  outline: 2px solid var(--series-1);
+  outline-offset: 3px;
+  border-radius: 3px;
 }
 
 .card__head {
@@ -280,6 +311,27 @@
   align-items: center;
   gap: 12px;
   font-size: 0.8rem;
+  padding: 2px 6px;
+  margin: 0 -6px;
+  border-radius: 4px;
+  transition: background-color 160ms var(--ease);
+}
+
+.customers__row:hover {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.customers__bar-fill,
+.segbar__part {
+  transition: filter 160ms var(--ease);
+}
+
+.customers__row:hover .customers__bar-fill {
+  filter: brightness(1.2);
+}
+
+.segbar:hover .segbar__part {
+  filter: brightness(1.15);
 }
 
 .customers__rank {
@@ -327,44 +379,77 @@
   border-radius: 2px;
 }
 
-.seglist {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 11px;
-}
-
-.seglist__item {
-  display: grid;
-  grid-template-columns: 10px 1fr auto auto;
-  align-items: center;
-  gap: 12px;
-  font-size: 0.82rem;
-}
-
 .seglist__dot {
   width: 10px;
   height: 10px;
   border-radius: 3px;
+  display: inline-block;
+  flex-shrink: 0;
 }
 
-.seglist__label {
-  font-weight: 500;
+/* Wide content scrolls inside its own box rather than widening the page. */
+.segtable-scroll {
+  overflow-x: auto;
 }
 
-.seglist__pct {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
+.segtable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  min-width: 340px;
 }
 
-.seglist__count {
-  font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  min-width: 58px;
+.segtable th {
   text-align: right;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 0 0 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.segtable th:first-child {
+  text-align: left;
+}
+
+.segtable td {
+  text-align: right;
+  padding: 11px 0;
+  font-variant-numeric: tabular-nums;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.segtable tr:last-child td {
+  border-bottom: none;
+}
+
+.segtable__name {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+  font-weight: 500;
+  font-variant-numeric: normal;
+}
+
+.segtable__dim {
+  color: var(--text-muted);
+}
+
+.segnote {
+  margin: 14px 0 0;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  border-left: 2px solid var(--seg-3);
+  padding-left: 10px;
+}
+
+.segnote strong {
+  color: var(--text-secondary);
+  font-weight: 600;
 }
 
 /* ============ status screens ============ */
@@ -448,5 +533,14 @@
   }
   .spinner {
     animation-duration: 2s;
+  }
+  .card,
+  .kpi,
+  .customers__row {
+    transition: none;
+  }
+  .card:hover,
+  .kpi:hover {
+    transform: none;
   }
 }

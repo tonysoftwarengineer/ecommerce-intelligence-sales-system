@@ -50,14 +50,19 @@ class CustomerSegment(BaseModel):
     monetary: float
 
 
-class SegmentCount(BaseModel):
+class SegmentSummary(BaseModel):
     segment_label: str
     customer_count: int
+    avg_recency: float
+    avg_frequency: float
+    avg_monetary: float
 
 
 class SegmentsResponse(BaseModel):
-    segments: list[CustomerSegment]
-    segment_counts: list[SegmentCount]
+    segment_counts: list[SegmentSummary]
+    # Per-customer rows are ~12MB and no current view reads them, so they're
+    # opt-in via ?include_customers=true rather than shipped on every load.
+    segments: list[CustomerSegment] = []
 
 
 class HealthResponse(BaseModel):

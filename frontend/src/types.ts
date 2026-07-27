@@ -49,12 +49,16 @@ export interface CustomerSegment {
   monetary: number;
 }
 
-export interface SegmentCount {
+export interface SegmentSummary {
   segment_label: string;
   customer_count: number;
+  avg_recency: number;
+  avg_frequency: number;
+  avg_monetary: number;
 }
 
 export interface SegmentsResponse {
+  segment_counts: SegmentSummary[];
+  /** Empty unless requested with ?include_customers=true — ~12MB otherwise. */
   segments: CustomerSegment[];
-  segment_counts: SegmentCount[];
 }
