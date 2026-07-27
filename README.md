@@ -78,12 +78,12 @@ Then open <http://localhost:5173>. Interactive API docs are at <http://localhost
 
 | Endpoint | Returns |
 |---|---|
-| `GET /api/health` | Readiness of each cached subsystem |
-| `GET /api/report` | All six analytics metrics |
-| `GET /api/forecast` | 3-month revenue projection |
-| `GET /api/segments` | Per-segment summary (counts + mean RFM) |
+| `GET /api/v1/health` | Readiness of each cached subsystem |
+| `GET /api/v1/report` | All six analytics metrics |
+| `GET /api/v1/forecast` | 3-month revenue projection |
+| `GET /api/v1/segments` | Per-segment summary (counts + mean RFM) |
 
-`/api/segments` returns a summary by default. Pass `?include_customers=true` for the full per-customer rows — that response is ~12MB versus ~500 bytes, so it's opt-in.
+`/api/v1/segments` returns a summary by default. Pass `?include_customers=true` for the full per-customer rows — that response is ~12MB versus ~500 bytes, so it's opt-in.
 
 The dataset is built once during app startup and cached in memory; requests are served from that cache. Forecasting and segmentation are isolated — if either fails, its endpoint returns 503 while the rest of the API keeps working, and the failure is logged with a full traceback.
 
