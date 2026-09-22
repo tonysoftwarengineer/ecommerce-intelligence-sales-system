@@ -28,6 +28,8 @@ model_artifacts/
 # Frontend (V5)
 frontend/node_modules/
 frontend/dist/
+frontend/playwright-report/
+frontend/test-results/
 node_modules/
 
 # Kaggle credentials — safety net

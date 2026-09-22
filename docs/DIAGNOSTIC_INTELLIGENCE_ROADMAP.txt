@@ -1,0 +1,1154 @@
+DIAGNOSTIC INTELLIGENCE ROADMAP
+Status: Milestones 1-10 and product-demand phases 11A through 11B-6 are
+complete. Two sparse safeguard candidates failed their predeclared gates; the
+live preview policy is unchanged. RAG Phase 1 retrieval passed its locked gate.
+RAG Phase 2 document answers are implemented but experimental; Gemini provider
+limits prevented conclusive hard-development scoring. Independent-business
+forecast evidence and the untouched Phase 2 answer evaluation remain pending.
+Last updated: 2026-09-21
+
+PURPOSE
+
+Evolve the Ecommerce Intelligence Sales System from a trusted analytics
+dashboard into an evidence-backed decision-intelligence product for small
+businesses. The system must explain material business changes, identify risks,
+state its confidence and limitations, and suggest safe next actions.
+
+The project is deliberately built as a learn-as-we-go AI engineering project.
+Before each milestone, record the problem, the options, the selected design,
+and the trade-offs. After each milestone, add tests and record what should be
+revisited later.
+
+FIRST-RELEASE AUDIENCE DECISION (2026-09-21)
+
+The first portfolio release is designed for small online retailers selling
+physical products with repeat sales. Lead with validated sales changes and
+safe investigation prompts. Seven-day product-unit demand is an optional,
+clearly labelled planning preview. Shipping, refund, and catalogue documents
+may support separately cited questions through the bounded RAG feature.
+
+The engine still accepts other sales CSVs that meet its existing field and
+business-rule requirements; there is no industry declaration or hard gate.
+The sales path needs order ID, order date, customer ID, and a valid revenue
+representation. Product demand additionally needs reliable product identity,
+quantity, units, adequate safe history, and truthful open-day and stockout
+confirmations. Missing evidence produces a correction reason or unavailable
+result, not an invented forecast.
+
+The next forecasting checkpoint is evidence collection for this retailer
+audience. Existing development comparison and fresh M5 validation rejected the
+tested 10% sparse-abstention rule; a three-block consistency candidate also
+failed development screening. Preserve those results. Do not adjust their
+thresholds and retest the same cohorts as fresh proof. Obtain an independent
+permissioned retailer export with stockout and product-lifecycle semantics,
+then predeclare any new safeguard and test it on untouched future weeks.
+See docs/evaluation/online_retailer_evidence_matrix.md for current coverage.
+
+CURRENT FOUNDATION
+
+Already built:
+- Generic CSV upload, preview, direct-identifier masking, and header-based
+  schema suggestions.
+- User-reviewed schema mapping, retail-data validation, and quarantine of
+  invalid or ambiguous rows.
+- Canonical sales transformation with explicit treatment of statuses,
+  discounts, refunds, tax, shipping, payments, and currencies.
+- Capability-aware sales analytics, adaptive baseline forecasting, RFM
+  customer segmentation, FastAPI endpoints, React dashboard, and tests.
+
+The existing generic sales pipeline is the primary product path. The Olist
+dataset remains a useful benchmark and demonstration dataset, not the product
+contract.
+
+PHASE GOAL: DIAGNOSTIC INTELLIGENCE
+
+When a user uploads a supported sales export, the system will answer:
+1. What changed?
+2. Which measurable factors contributed to the change?
+3. Is the change unusual relative to available history?
+4. How confident is the system, and what data limits apply?
+5. What should the business investigate or do next?
+
+The intended business outcome is a decision-ready report for a weekly or
+monthly operating review, not an autonomous system that makes financial or
+commercial decisions on behalf of the business.
+
+MILESTONE 1: PRODUCT CONTRACT AND GUARDRAILS
+
+Objective
+
+Define exactly what the first Diagnostic Intelligence release is permitted to
+say, the evidence it must show, and the conditions that disable a diagnostic.
+
+In scope
+
+- Revenue, completed-order, average-order-value, customer, category, regional,
+  discount, refund, pending-value, and payment diagnostics where the source
+  data supports them.
+- Comparison of complete periods only.
+- Explicit confidence and limitation labels.
+- Deterministic, evidence-backed findings and suggested investigations.
+
+Out of scope for this milestone
+
+- LLM-generated findings or recommendations.
+- RAG retrieval.
+- Causal claims about pricing, marketing, or operational changes.
+- Inventory, profit, churn-probability, or stockout recommendations without
+  their required source fields and evaluated models.
+- Authentication, durable storage, and multi-tenant deployment.
+
+REQUIRED OUTPUT CONTRACT
+
+The future diagnostic report will be a typed object, not a free-form text
+response. Each insight must eventually contain:
+
+- id: stable identifier for the insight type.
+- title: concise statement of the detected condition.
+- category: performance_change, anomaly, data_quality, or opportunity.
+- observation: factual statement written from validated metrics.
+- comparison_period: the exact periods or baseline used.
+- evidence: metric names, values, changes, and provenance.
+- contributors: factors that mathematically contributed to a change, when
+  applicable.
+- confidence: high, medium, low, or unavailable.
+- limitations: data or model constraints that qualify the finding.
+- recommended_action: a safe next investigation or action.
+- priority: critical, high, medium, or low.
+
+Facts, interpretations, and recommendations must remain separate fields.
+This makes every report auditable and prepares the system for a future LLM
+explanation layer without allowing it to invent calculations.
+
+CAPABILITY MATRIX
+
+Diagnostic                                  Minimum required data
+------------------------------------------  ---------------------------------
+Revenue and order-volume comparison         order_id, order_date, revenue
+Average order value comparison               order_id, order_date, revenue
+Customer-count comparison                    customer_id, order_date, revenue
+Category contribution                        product_category, order_date, revenue
+Regional contribution                        state_or_region, order_date, revenue
+Discount diagnostic                          discount plus revenue fields
+Refund diagnostic                            refund_amount or returned_quantity
+Pending/cancellation diagnostic              order_status or payment_status
+Payment/chargeback diagnostic                payment status, payment amount, or
+                                              chargeback amount as appropriate
+Historical anomaly diagnostic                enough complete, continuous periods
+Forecast-related diagnostic                  forecast capability already available
+Inventory recommendation                     inventory, lead time, and demand data
+Profit recommendation                        unit cost and relevant fulfilment costs
+
+If a requirement is not met, the report must state that the diagnostic is
+unavailable and explain why. It must never infer missing fields.
+
+NON-FUNCTIONAL REQUIREMENTS
+
+- Deterministic: the same canonical data and configuration produce the same
+  diagnostic report.
+- Traceable: every numerical statement links to calculated evidence.
+- Conservative: limited history, incomplete periods, mixed currencies, and
+  ambiguous data reduce or disable conclusions.
+- Fast: diagnostics should run synchronously for the current 10 MiB upload
+  limit; performance will be benchmarked before any production scale claim.
+- Testable: each diagnostic rule has positive, negative, and unavailable-data
+  test scenarios.
+- Safe: no direct financial, pricing, or inventory action is performed.
+- Extensible: the report contract can be persisted and later passed to an LLM
+  or RAG layer without changing the financial calculation path.
+
+LOCKED DESIGN DECISIONS
+
+1. Deterministic analytics first
+   Python code calculates business metrics, comparisons, and priorities. An
+   LLM may later explain a validated report but will not calculate money.
+
+2. Modular monolith for this phase
+   Diagnostics will live beside generic_sales as a cohesive module. Separate
+   services are not justified until independent scaling or deployment needs
+   exist.
+
+3. Capability-aware execution
+   Source-data availability controls which diagnostics appear. This follows
+   the existing validation philosophy and prevents false confidence.
+
+4. No causal language without causal evidence
+   The system may say a factor contributed mathematically or was associated
+   with a change. It may not say the factor caused the change.
+
+5. Human-readable confidence rules
+   Confidence is a transparent assessment of evidence sufficiency, not an
+   invented probability. The rule set will be defined and tested in Milestone 2.
+
+6. RAG is an augmentation, not the calculation engine
+   Future retrieval will search business policies, catalogues, supplier terms,
+   and historical validated reports. It will not replace structured analysis
+   of raw transaction rows.
+
+MILESTONE SEQUENCE
+
+1. Product contract and guardrails (complete)
+2. Typed insight, evidence, confidence, limitation, and recommendation schemas (complete)
+3. Period comparison and revenue-change decomposition (complete)
+4. Capability-aware diagnostics and conservative anomaly detection (complete)
+5. Cross-industry anomaly evaluation pack (complete)
+6. Deterministic recommendation ranking (complete)
+7. FastAPI endpoint and decision-focused dashboard (complete)
+8. Scenario-based evaluation, regression tests, and observability (complete)
+9. Architecture case study and RAG integration boundary (complete)
+10. Data-quality readiness, guided CSV repair, and Preview Mode (complete)
+
+MILESTONE 1 ACCEPTANCE CRITERIA
+
+- This document states the product goal, supported questions, non-goals, data
+  capability rules, output contract, and quality requirements.
+- The first release has a clear boundary: evidence-backed diagnostic reports,
+  not an unbounded AI assistant.
+- Future implementation work can map each new feature to a capability rule and
+  testable output field.
+- Any decision that changes a locked design decision receives a short ADR in
+  docs/architecture before implementation.
+
+CURRENT ROADMAP STATUS
+
+Milestones 1-10 and the Milestone 11A product-demand foundation are complete.
+The project is a learning-first AI engineering flagship focused first on
+small online retailers selling repeat-purchase physical products. The generic
+CSV path remains available to other businesses. Milestone 11B evaluation,
+the product-demand API/dashboard preview, RAG Phase 1 retrieval, and bounded
+RAG Phase 2 document answers are implemented. Sparse-demand safeguards tested
+so far failed their gates; none is approved as a reliable fix. Optional-location
+explanations, real anonymized business evaluation, authenticated tenant
+boundaries, durable storage, and deployment remain later work.
+
+RAG Phase 1 evidence retrieval is complete. RAG Phase 2 experimental grounded
+document answers are implemented behind analysis-scoped temporary documents,
+claim-level citations, exact-quote verification, and fail-closed provider
+handling. Phase 2 remains experimental until its locked answer evaluation and
+manual failure review pass. The permissioned independent-business forecasting
+checkpoint remains separate and pending; RAG Phase 2 does not approve or use
+forecast outputs.
+
+DEFERRED PRODUCT/UX BACKLOG
+
+Guided diagnostic investigation workflow (not implemented)
+
+The current dashboard presents an evidence-backed finding, its priority score,
+and a human-review investigation prompt. It does not yet guide a business
+through the investigation inside the product. A future workflow should:
+
+- translate the measured contributors (for example, completed orders and
+  average order value) into a short review checklist;
+- link each checklist item to only the available supporting breakdowns or
+  correction evidence; and
+- let the business record a human conclusion without converting that conclusion
+  into an unverified causal claim.
+
+This is deferred because it needs a durable, authenticated feedback design and
+real-business usability evaluation. Until then, recommendations remain prompts
+for human review rather than an in-dashboard investigation workflow.
+
+Product-demand coverage and stockout capture (not implemented)
+
+The current product-demand screen requires a business confirmation that the
+export covers every open day and that no stockouts are unrecorded. It can accept
+known business-closure dates, but it does not yet provide a low-friction way to
+enter known stockout dates by product. A future workflow should support grouped
+confirmation, correction guidance, and a structured stockout import or entry
+path. Until then, users must leave the stockout confirmation unchecked whenever
+known stockout dates cannot be represented safely.
+
+NEXT PHASE DESIGN STATUS: PRODUCT-DEMAND FORECASTING
+
+The primary prediction direction is now accepted: forecast units sold for each
+restockable product/SKU over the next seven days, with daily results and a
+coherent weekly total where the evidence supports them. Product identity,
+unit-of-measure normalization, missing-day and stockout semantics, per-product
+readiness, history evaluation, and low-friction interaction rules are recorded
+in docs/architecture/ADR-007-product-demand-forecasting-contract.md.
+
+The Milestone 11A foundation is implemented. The Milestone 11B-1 baseline and
+rolling-origin evaluation design is accepted in ADR-008, but its code has not
+started. Numerical history and trust thresholds remain open until cross-scenario
+and public-data evidence exists; the existing six-month monthly-revenue rule
+must not be copied into product-demand forecasting without evidence.
+
+MILESTONE 2 COMPLETION RECORD
+
+Implemented in src/diagnostics/contracts.py with tests in
+tests/test_diagnostic_contracts.py.
+
+Decision: the core diagnostic contracts use immutable Python dataclasses, not
+Pydantic models. This keeps the business domain independent from FastAPI and
+an LLM provider. Pydantic response models will be introduced only when the
+diagnostic API is added.
+
+Guardrails now enforced by the contract:
+- Every insight has at least one evidence item.
+- Evidence cannot state a change without a baseline.
+- An unavailable insight must explain its limitation.
+- Recommendations always require human review.
+- Report insight identifiers are unique.
+- Each report is isolated to one valid three-letter currency.
+
+Verification: ruff check, mypy, and the non-integration test suite passed
+(134 passed, 4 deselected) on 2026-08-04.
+
+MILESTONE 3 COMPLETION RECORD
+
+Implemented in src/diagnostics/comparison.py with tests in
+tests/test_diagnostic_comparison.py.
+
+The first diagnostic calculation compares the two latest complete, consecutive
+months of recognized sales. It then decomposes the sales change into the exact
+mathematical contribution from:
+- completed-order count; and
+- average order value.
+
+Decision: use recognized_sales rather than net revenue for this decomposition.
+Recognized sales has the exact identity:
+
+    recognized sales = completed orders × average order value
+
+Refund-only adjustments are excluded from this calculation and will receive a
+separate diagnostic. This avoids presenting a refund timing effect as a change
+in completed-order behaviour.
+
+The order and AOV contributions use a symmetric formula so they always add to
+the total sales change and do not depend on calculation order.
+
+Guardrails now enforced by the calculation:
+- Only one currency can be analyzed at a time.
+- The two periods must be consecutive months.
+- An incomplete latest month is excluded.
+- Missing months are not assumed to be zero sales.
+- Each comparison requires at least one completed order in both periods.
+- The output says it is a two-period comparison, not a causal or anomaly claim.
+
+Verification: ruff check, mypy, and the non-integration test suite passed
+(140 passed, 4 deselected) on 2026-08-04.
+
+MILESTONE 4 COMPLETION RECORD
+
+Implemented in src/diagnostics/anomaly.py with tests in
+tests/test_diagnostic_anomaly.py.
+
+The anomaly detector evaluates the latest complete month against the rolling
+median and Median Absolute Deviation (MAD) of the six prior complete,
+consecutive months. Therefore, seven complete months are required: six for the
+baseline and one current month.
+
+Metrics currently evaluated:
+- recognized sales;
+- completed order count; and
+- average order value.
+
+The report now distinguishes three states:
+- available: one or more anomalies were found;
+- no_findings: the analysis completed and no metric crossed the threshold; and
+- unavailable: the data or history was insufficient.
+
+Design decisions:
+- Median/MAD was selected over fixed percentage thresholds because it adapts
+  to each business and is less distorted by large spikes.
+- The robust threshold starts at 3.5 scaled deviations.
+- An anomaly is an unusual movement, not a causal explanation.
+- No anomaly result is generated when history is insufficient or periods are
+  non-contiguous.
+- An incomplete latest period is preserved as a friendly limitation message.
+- The core detector has no LLM or RAG dependency.
+
+Verification: ruff check, mypy, and the non-integration test suite passed
+(147 passed, 4 deselected) on 2026-08-05.
+
+CROSS-INDUSTRY EVALUATION PACK COMPLETION RECORD
+
+Implemented in tests/test_cross_industry_anomaly_evaluation.py and documented
+in docs/CROSS_INDUSTRY_ANOMALY_EVALUATION.md.
+
+The pack creates ten deterministic synthetic datasets for grocery retail,
+fashion ecommerce, electronics retail, food delivery, subscription commerce,
+wholesale distribution, professional services, beauty and cosmetics, logistics
+services, and pharmacy retail.
+
+It verifies expected alerts, expected no-findings outcomes, incomplete-period
+fallbacks, non-contiguous-history fallbacks, and the current refund-detection
+limitation. These are controlled evaluation scenarios, not a claim that the
+detector has been validated with ten real businesses.
+
+Verification: all 11 evaluation tests passed on 2026-08-05.
+
+MILESTONE 5 COMPLETION RECORD
+
+Implemented in src/diagnostics/recommendations.py with tests in
+tests/test_diagnostic_recommendations.py. The design decision is recorded in
+docs/architecture/ADR-001-deterministic-recommendation-ranking.md.
+
+The recommendation layer attaches only supported, human-reviewed investigation
+actions to validated findings. It ranks them with an explicit score:
+
+    ranking score = impact + urgency + confidence
+
+Each component ranges from 0 to 3. High priority requires a score of at least
+7; medium priority requires at least 4. Critical priority is intentionally not
+used yet because the system lacks stronger evidence such as inventory, profit,
+or operational-risk data.
+
+Safeguards:
+- Recommendations never execute a business change.
+- Unsupported diagnostic types receive no generic recommendation.
+- Recommendations do not claim a cause.
+- Every recommendation requires human review.
+- A two-period comparison is capped at medium priority because it is not a
+  historical anomaly.
+
+Verification: ruff check, mypy, and the non-integration test suite passed
+(162 passed, 4 deselected) on 2026-08-05.
+
+MILESTONE 6 COMPLETION RECORD
+
+Implemented diagnostic delivery through the existing saved analysis response,
+with API schemas in api/schemas.py, explicit domain serialization in
+src/diagnostics/reporting.py, and React rendering in
+frontend/src/components/DiagnosticIntelligence.tsx.
+
+Design decision: return comparison and anomaly diagnostics as independent
+sections of the same analysis snapshot. This avoids a browser request waterfall
+and lets the UI show a valid two-period comparison even when anomaly detection
+is unavailable due to limited history.
+
+The dashboard visibly shows:
+- evidence for each finding;
+- status, confidence, and priority;
+- safe investigation recommendations;
+- human-review requirement and transparent recommendation score; and
+- friendly limitations and unavailable states.
+
+The design decision is recorded in
+docs/architecture/ADR-002-diagnostic-api-and-dashboard.md.
+
+Verification at completion: API regression tests, linting, type checking, and
+the frontend production build passed. Playwright end-to-end coverage was added
+in Milestone 8 after the initial Milestone 6 delivery.
+
+MILESTONE 10 COMPLETION RECORD
+
+Implemented a backend-owned data-quality readiness contract in
+src/generic_sales/data_quality.py. The initial deterministic policy is:
+- fewer than 5% invalid source rows: normal;
+- 5% to under 20%: caution;
+- 20% or more: preview only; and
+- no transformable rows or another blocking validation error: blocked.
+
+Preview Mode continues with basic analytics over accepted rows but does not
+execute forecasting, diagnostics, or recommendation ranking. The API returns
+explicit unavailable states with the data-quality reason, so another client
+cannot bypass the dashboard warning.
+
+Validation issues are grouped into deterministic correction actions containing
+the affected source column, issue code, affected-row count, sample CSV row
+numbers, problem, and repair instruction. The validation workflow and final
+dashboard both show the readiness status and repair guide. The complete rejected
+rows remain available in the quarantine CSV.
+
+The accepted design and alternatives are recorded in
+docs/architecture/ADR-006-backend-owned-data-quality-readiness.md. Invalid-row
+percentage is an initial product policy because it is available for every CSV;
+affected-order share and financial value at risk require later evidence-aware
+design rather than guessed impact.
+
+Verification on 2026-08-27: 172 non-integration backend tests passed (4
+deselected), all 3 Playwright Chromium journeys passed, frontend lint and build
+passed, and changed Python files passed Ruff lint and format checks.
+
+Post-review correction: mapping feedback now points to the exact required
+mapping control and candidate source column when available; repair guidance now
+states direct CSV line-and-data-row locations rather than only example rows; and
+the revenue chart no longer creates a visual forecast anchor when no forecast
+points exist. These are UI truthfulness and guidance corrections, not changes to
+the financial or forecasting calculation path.
+
+BACKLOG: OPTIONAL LOCATION PERFORMANCE EXPLANATIONS
+
+Branch, region, store, or location analysis must stay optional because many
+restaurants and small businesses operate from one location or do not track
+location in their CSV files.
+
+When location data is available, the dashboard should avoid ranking locations
+by revenue alone. It should explain location performance with supporting
+signals such as order count, average order value, refunds, and discounts. This
+keeps the analysis useful without implying that a high-revenue branch is
+automatically the healthiest branch.
+
+When location data is not available, the dashboard should show a friendly
+capability message instead of an empty chart. For example: location performance
+is unavailable because no branch, store, or region column was mapped.
+
+BACKLOG: SCALABLE DATA-QUALITY ISSUE MANAGEMENT
+
+When a CSV contains many invalid rows or issue groups, the dashboard should
+remain readable and actionable. It should summarize issues by type and field,
+show severity and affected-row counts, display only representative locations,
+and provide filtering or expandable details for larger reports. The complete
+set of affected rows should remain available through the downloadable
+quarantine/correction file. This is a presentation and workflow improvement;
+it must not weaken validation or hide the evidence needed to correct the data.
+
+FORECAST EXPLANATION CORRECTION
+
+The generic forecasting pipeline already compares multiple eligible transparent
+methods through rolling historical backtests. The dashboard had shown only the
+winning method, which could wrongly imply that it used one method alone.
+
+The dashboard now states that the shown method was chosen after comparing
+eligible methods by average historical error, and uses business-friendly names
+for the methods. The full per-method comparison, trust label, and selection
+reason are delivered in Milestone 7.
+
+MILESTONE 7 COMPLETION RECORD
+
+Implemented forecast trust and model comparison in
+src/generic_sales/forecasting.py, api/schemas.py, and the React business
+dashboard. The design decision is recorded in
+docs/architecture/ADR-003-forecast-trust-and-model-comparison.md.
+
+The saved analysis response now includes every eligible model evaluation,
+the selected method, a deterministic selection reason, and a trust level with
+a user-facing explanation. The dashboard exposes this evidence in a compact
+comparison table.
+
+Trust labels are deliberately conservative:
+- limited for six to eleven complete months;
+- exploratory when evidence is weak or WAPE remains high;
+- moderate only with at least twelve months, six rolling tests, and WAPE at
+  or below 25%;
+- strong only with at least 24 months, annual seasonality eligible, six
+  rolling tests, and WAPE at or below 10%; and
+- unavailable when forecast guardrails fail.
+
+Existing saved sessions that predate the new fields receive a friendly fallback
+and can be rerun to show the full comparison.
+
+Verification: ruff, mypy, frontend lint/build, and non-integration tests passed
+(163 passed, 4 deselected) on 2026-08-18.
+
+MILESTONE 8 COMPLETION RECORD
+
+Scenario and regression evaluation now has three complementary layers:
+- a ten-industry deterministic anomaly evaluation pack;
+- fifteen end-to-end generic CSV trust scenarios covering mapping, validation,
+  quarantine, financial treatment, currencies, analytics, and forecasts; and
+- API and domain regression tests for supported paths, unavailable states, and
+  safe fallbacks.
+
+The system now also exposes a development-only aggregate scorecard at:
+
+    GET /api/v1/observability/analysis-metrics
+
+It measures successfully completed analysis runs, independent currency reports,
+latency, diagnostic availability, forecast status, and unexpected diagnostic
+processing fallbacks. It deliberately retains no CSV contents, filenames,
+customer identifiers, analysis identifiers, or insight text; metrics reset on
+API restart. This is an evaluation tool, not production monitoring.
+
+Decision: use bounded, process-local, privacy-safe aggregate metrics rather
+than an external monitoring stack. The decision and its deployment boundary are
+recorded in docs/architecture/ADR-004-process-local-evaluation-observability.md.
+
+The future feedback contract is documented in
+docs/MILESTONE_8_EVALUATION_AND_OBSERVABILITY.md. No feedback-writing API was
+added because durable customer feedback requires authentication, data retention
+rules, and a database. Future labels must be human-reviewed and must never
+automatically change financial rules or train the system.
+
+Browser verification now has both a manual restaurant-dashboard smoke check
+and three automated Playwright Chromium journeys:
+- rich CSV upload through mapping, retail-rule confirmation, validation, and
+  evidence-backed dashboard rendering;
+- invalid-row quarantine blocking until explicit user confirmation; and
+- limited-history and unmapped-optional-field friendly unavailable states.
+
+Playwright retains screenshots, traces, and screen recordings on failure. The
+suite starts an isolated generic-sales API without loading the unrelated Olist
+demo dataset. Verification on 2026-08-18: 3 Playwright tests passed, 167
+non-integration backend tests passed (4 deselected), frontend lint passed, and
+the frontend production build passed.
+
+MILESTONE 9 COMPLETION RECORD
+
+The portfolio architecture case study is documented in
+docs/ARCHITECTURE_CASE_STUDY.md. It explains the real implemented trusted-data
+path, component responsibilities, diagnostic and forecast decisions,
+evaluation evidence, current storage and deployment limits, key trade-offs,
+and the next product-validation phase.
+
+The future RAG boundary is recorded in
+docs/architecture/ADR-005-rag-explanation-boundary.md.
+
+Decision: RAG may later explain an immutable validated diagnostic report with
+approved tenant documents, but it will not calculate or alter financial values,
+diagnostic status, confidence, limitations, or priority. Every model-produced
+number must match structured evidence, every document claim must be cited, and
+verification failure must preserve the deterministic dashboard with a friendly
+fallback.
+
+No LLM, embedding, vector database, agent, or explanation endpoint was added in
+this milestone. Authentication, tenant-scoped authorization, durable document
+governance, and a representative evaluation corpus are explicit prerequisites
+for implementation. This keeps the portfolio claim honest and the future AI
+layer testable.
+
+Verification: documentation links and formatting were checked on 2026-08-20.
+
+MILESTONE 11A DESIGN GATE: PRODUCT-DEMAND FOUNDATION
+
+The next flagship learning phase targets observed fulfilled units per product
+over a seven-day planning horizon. A pre-implementation architecture challenge
+confirmed that the project must first establish product identity, unit semantics,
+order-lifecycle treatment, per-product readiness, and an explicit product-date
+calendar. Building a forecasting model before those contracts would train on an
+undefined or misleading product grain.
+
+The scoped coding plan is recorded in
+docs/MILESTONE_11_PRODUCT_DEMAND_FOUNDATION_PLAN.md, and the accepted domain
+contract is recorded in
+docs/architecture/ADR-007-product-demand-forecasting-contract.md.
+
+Milestone 11A will not produce dashboard forecasts. It will add backward-
+compatible product mapping fields, typed contracts, deterministic readiness,
+calendar construction, scenario tests, and a real-data foundation check. A
+separate review gate must approve or revise these decisions before Milestone 11B
+implements and evaluates daily/weekly baseline forecast methods.
+
+Deferred behind evidence gates: cold-start proxies, future events, prediction
+intervals, reorder quantities, location-level forecasts, and product-demand UI.
+
+MILESTONE 11A COMPLETION RECORD
+
+Implemented the product-demand data foundation without adding forecast values.
+Line-item-capable uploads now support optional Product/SKU code, product name,
+and unit-of-measure mappings. The canonical pipeline preserves those values, and
+the new src/product_demand package provides typed assumptions, per-product
+ready/limited/unavailable states, explicit reason codes, lifecycle-aware
+fulfilled and returned units, and a deterministic daily product calendar.
+
+The calendar distinguishes observed sales, confirmed zeroes, business closures,
+known stockout-limited days, and missing/unknown days. It does not invent product
+codes, unit conversions, unmet demand, or zeroes for ambiguous gaps. Order-total
+mode is product-demand-ineligible, and a problem with one product restricts that
+product rather than every valid series.
+
+The official UCI Online Retail II workbook was profiled as a public real-world
+challenge: 1,067,371 rows and 5,304 product codes were inspected. For the 25
+busiest products, 14 remained limited because the source lacked stockout and
+complete-export evidence, while 11 were unavailable because negative quantities
+had no explicit cancellation/return meaning. This is an expected safety outcome,
+not a failed test. It prevents the system from guessing whether those rows are
+returns, corrections, or inventory adjustments.
+
+Verification on 2026-08-28: 187 non-integration backend tests passed (4
+deselected), all 3 Playwright Chromium journeys passed, frontend lint/build
+passed, and changed Python files passed Ruff and mypy checks.
+
+MILESTONE 11B GATE
+
+Before baseline forecasting code begins, decide and test:
+- how negative quantity adjustments and return representations are confirmed;
+- how product activation/discontinuation periods are established;
+- which daily and seven-day baseline methods enter rolling-origin evaluation;
+- which zero-safe metrics and coverage reports determine per-product eligibility.
+
+Forecasting methods, thresholds, and trust labels remain deliberately undecided
+until that evaluation is designed. The system is not to be tuned around UCI or
+any single CSV.
+
+MILESTONE 11B-1 APPROVED PLAN: BASELINE EVALUATION ENGINE
+
+The four remaining design questions were resolved on 2026-08-31:
+- negative source quantities never enter the fulfilled-demand target as negative
+  demand; confirmed returns, cancellations, and inventory adjustments remain
+  separate evidence, while unknown meanings restrict the affected product;
+- first sale marks the observed window rather than a launch date, and grouped
+  active-product confirmation replaces per-product historical investigation;
+- daily values must earn day-level evidence, with an evaluated seven-day total
+  as the fallback for sparse or unstable products; and
+- forecasts remain neutral while overall, over-forecast, under-forecast, and bias
+  errors are measured separately without invented business-cost weights.
+
+The accepted architecture is recorded in
+docs/architecture/ADR-008-product-demand-baseline-evaluation.md. The staged coding
+and test plan is recorded in
+docs/MILESTONE_11B_PRODUCT_DEMAND_EVALUATION_PLAN.md.
+
+Milestone 11B-1 will build typed baseline methods, seven-day rolling-origin
+evaluation, zero-safe and directional metrics, deterministic scenario reports,
+and UCI/M5-sample evaluations. It will not add an API or dashboard forecast.
+Milestone 11B-2 requires a separate evidence review before trust thresholds,
+daily-versus-weekly policy, grouped confirmations, and user-facing forecasts are
+implemented.
+
+MILESTONE 11B-1 STEP 1 COMPLETION RECORD
+
+Implemented immutable evaluation configuration, candidate, calendar-series,
+rolling-fold, daily-metric, seven-day-metric, candidate-result, and product-report
+contracts. Added a preparation boundary that preserves every product calendar
+date, accepts only observed and confirmed-zero targets, explicitly excludes
+closures, stockout-limited dates, and unknown dates, rejects negative targets,
+and does not mutate the source calendar. Step 2 subsequently added the pure
+baseline forecast functions; no model selection or dashboard forecast exists yet.
+Verification on 2026-08-31: 195 non-integration backend tests passed (4
+deselected), and Ruff plus mypy passed.
+
+MILESTONE 11B-1 STEP 2 COMPLETION RECORD
+
+Implemented seven pure baseline candidates: zero benchmark, latest value,
+seasonal naive 7, moving averages 7 and 28, last-week total, and mean of four
+weekly totals. A candidate uses its natural recent calendar window and fails
+explicitly rather than skipping an unknown, closed, or stockout-limited date.
+The zero method remains benchmark-only, and SBA/Croston remains deferred until
+the rolling evaluation harness can measure it. No method has been selected as
+best and no user-facing forecast has been added. Verification on 2026-08-31:
+215 non-integration backend tests passed (4 deselected), and Ruff plus mypy
+passed.
+
+MILESTONE 11B-1 STEP 3 COMPLETION RECORD
+
+Implemented expanding-window rolling-origin evaluation with non-overlapping
+seven-day historical test windows. Every completed fold retains its training
+boundary, seven forecast dates, predictions, and actuals. Skipped folds remain
+auditable with the training/test phase, affected dates, calendar statuses, and
+reason rather than disappearing from reported coverage. A future-shock test
+proves that the first fold cannot read values from its future test week. Candidate
+availability requires the configured experimental minimum number of completed
+folds. Metrics, rankings, and model selection remain Step 4 work; no dashboard
+forecast exists. Verification on 2026-08-31: 224 non-integration backend tests
+passed (4 deselected), and Ruff plus mypy passed.
+
+MILESTONE 11B-1 STEP 4 COMPLETION RECORD
+
+Implemented daily MAE, RMSE, RMSSE, RMSSE scale evidence, overforecast units,
+underforecast units, signed and mean bias, and direction counts. Implemented
+equivalent operational direction and total-error evidence for seven-day totals.
+RMSSE remains explicitly undefined when the naive scale has no adjacent evidence
+or equals zero; in that case, the entire daily leaderboard falls back to MAE
+instead of mixing incomparable metrics or substituting zero. Daily and weekly
+leaderboards are separate, use only historical weeks shared by every compared
+candidate, and break exact metric ties by absolute mean bias, then lower
+complexity. The zero benchmark is reported but cannot win. All selections remain
+labelled evaluation_only and are not dashboard forecasts. Verification on
+2026-08-31: 233 non-integration backend tests passed (4 deselected), and Ruff
+plus mypy passed.
+
+MILESTONE 11B-1 STEP 5 COMPLETION RECORD
+
+Implemented a typed deterministic pack of twelve demand scenarios: stable,
+weekday-seasonal, upward level shift, intermittent confirmed-zero, all-zero,
+short-history, unknown-gap, stockout-censored, unconfirmed-active, invalid-product
+isolation, nonzero-day-average inflation, and equal-error/opposite-bias. All
+twelve declared expectations passed. The pack asserts winners only where the
+pattern makes them unambiguous; exploratory patterns assert evidence and safety
+behavior instead. It proved that a nonzero-day mean could imply 42 weekly units
+from 18 observed units and that equal MAE 6 could hide mean biases of +6 and -6.
+It also exposed and led to correction of a Decimal bias-accounting edge case.
+The reproducible report is in docs/PRODUCT_DEMAND_SCENARIO_EVALUATION.md. A local
+run completed in 34.432 ms; this is evidence, not an SLO. Verification on
+2026-09-02: 242 non-integration backend tests passed (4 deselected), and Ruff
+plus mypy passed. Step 6 subsequently completed the public UCI and M5-sample
+evaluation; no API or dashboard product-demand forecast exists.
+
+MILESTONE 11B-1 STEP 6 COMPLETION RECORD
+
+Implemented reproducible UCI Online Retail II and M5 public-data adapters outside
+the forecasting formulas. UCI now records both the strict safety result and a
+labelled research-only complete-ledger view: 14 of the 25 busiest selected
+products evaluated, while 11 remained unavailable because their quantity
+semantics were unsafe. The strict calendar retained 2,174 absent product dates as
+unknown. M5 sampled 24 item-store series across delayed-start, sparse,
+intermittent, and dense patterns; 6,040 pre-first-sale zero days were trimmed
+rather than treated as active zero demand.
+
+Moving-average-28 ranked first for 13 of 14 UCI products and 23 of 24 M5
+products. Mean-of-four-weekly-totals won 13 of 14 UCI and 22 of 24 M5 weekly
+comparisons. Every prepared product's selected daily method beat the zero
+benchmark on shared folds. These are evaluation findings, not production model
+or trust decisions. The reproducible report and limitations are in
+docs/PRODUCT_DEMAND_PUBLIC_DATA_EVALUATION.md. Step 7 is the evidence review gate;
+no API or dashboard product-demand forecast exists.
+
+MILESTONE 11B-1 STEP 7 EVIDENCE REVIEW RECORD
+
+Implemented a typed policy-review layer over the UCI and M5 product reports. It
+measures benchmark-relative skill, normalized directional bias, individual-fold
+win rates, early-versus-recent method stability, daily-versus-weekly total error,
+and whether selected daily predictions contain a changing within-week shape.
+
+The review rejected premature daily output: all 38 public-data daily winners
+repeated a flat value across the seven dates, 14 had RMSSE above 1, and only 18
+kept the same best method across early and recent history. Weekly evidence was
+stronger for UCI and most M5 products, but five of six sparse M5 products were
+worse than zero on weekly total MAE; sparse median weekly skill versus zero was
+-29.9%. The public series also had at least 57 folds, so the engine's three-fold
+minimum is not validated as production trust policy.
+
+The review is recorded in docs/PRODUCT_DEMAND_EVIDENCE_REVIEW.md. Accepted
+ADR-009 defines a bounded 11B-1 extension: weekly zero-skill gating,
+SBA/Croston evaluation, flat-allocation daily-shape comparison, and
+history-length sensitivity. Milestone 11B-2 remains unapproved until that
+extension is completed and reviewed. No API or dashboard product-demand forecast
+exists.
+
+MILESTONE 11B-1 STEP 8 WEEKLY ZERO-SKILL GATE RECORD
+
+The project owner accepted ADR-009 Option B. Implemented a typed per-product
+weekly gate that compares the selected non-benchmark method with a zero forecast
+on identical historical weeks. The gate passes only when relative skill is
+strictly positive. A perfect zero benchmark, tie, worse method, or unavailable
+comparison cannot pass. Passing is explicitly necessary but insufficient and
+does not approve a supported or dashboard forecast; failure says not to show a
+numeric forecast for that product.
+
+The reproducible public-data rerun produced 14 passes and no failures for UCI,
+and 19 passes with 5 failures for M5. Those five failures remain visible at the
+product level rather than being hidden by aggregate medians. The next extension
+is the SBA/Croston intermittent-demand candidate. Daily-shape comparison,
+history-length sensitivity, and the final trust-threshold review still follow
+before Milestone 11B-2 can be approved. No API or dashboard product-demand
+forecast exists. Verification on 2026-09-02: 262 non-integration backend tests
+passed (4 deselected), with Ruff, formatting, mypy, and diff checks clean.
+
+MILESTONE 11B-1 STEP 9 SBA/CROSTON RECORD
+
+Implemented a pure weekly-total SBA/Croston candidate for intermittent demand.
+It uses fixed 0.1 smoothing for positive demand sizes and event intervals, then
+applies the 0.95 SBA bias correction. It requires an unbroken included calendar,
+does not tune parameters to UCI or M5, and does not produce false per-date
+precision. Formula, all-zero, missing-date, rolling-origin, and future-leakage
+tests were added.
+
+The public rerun selected SBA/Croston for 11 of 14 UCI products and 8 of 24 M5
+products. The five M5 zero-gate failures remained failures; one improved from
+-23.3% to -18.9% skill but was still worse than zero. Total error improved for
+many products, while UCI method stability weakened and bias increased. The
+method therefore remains useful evaluation evidence, not production approval.
+The next extension is flat-allocation daily-shape comparison, followed by
+history-length sensitivity and the final trust review. No API or dashboard
+product-demand forecast exists. Verification on 2026-09-02: 266 non-integration
+backend tests passed (4 deselected), with Ruff, formatting, mypy, and diff checks
+clean.
+
+MILESTONE 11B-1 STEP 10 DAILY-SHAPE COMPARISON RECORD
+
+Implemented an evaluation-only comparison that asks whether a date-varying
+method distributes a selected weekly total more accurately than dividing that
+same total equally across seven dates. Both alternatives are reconciled to the
+identical weekly total, so the test measures daily shape without confusing it
+with weekly-level accuracy. Exact-total, seasonal-case, unavailable-state,
+determinism, immutability, and serialization tests were added.
+
+On public evidence, the date-varying seasonal method was worse than flat for all
+14 UCI products and 20 of 24 M5 products. Four M5 products improved overall, but
+only two improved in both the earlier and later halves of history. The evidence
+does not justify date-specific product forecasts. Daily output therefore remains
+deferred, and any future daily planning rate must be labelled as an average. The
+next extension is history-length sensitivity, followed by the final trust-policy
+review. No API or dashboard product-demand forecast exists. Verification on
+2026-09-02: 271 non-integration backend tests passed (4 deselected), with Ruff,
+formatting, mypy, and diff checks clean.
+
+MILESTONE 11B-1 STEP 11 HISTORY-LENGTH SENSITIVITY RECORD
+
+Implemented an evaluation-only fixed-holdout experiment at 3, 6, 13, and 26
+completed weekly selection folds. Each checkpoint chooses a method without
+seeing the same final 13-fold holdout, then compares that choice with forecasting
+zero on those holdout weeks. This prevents future leakage and prevents different
+calendar periods from being mistaken for a history-length effect.
+
+All 14 UCI products passed at every checkpoint, with median holdout skill from
+59.81% to 62.43%. M5 pass counts varied non-monotonically from 17 to 19 of 24.
+Sparse M5 remained unsafe: only one or two of six products passed, and median
+skill stayed negative even with 26 selection folds. More history therefore did
+not repair the sparse-demand weakness.
+
+The experiment rejects fold count as a sufficient universal trust rule. The
+final policy must combine an evidence floor with unseen benchmark-relative skill
+and product-pattern safeguards. Step 12 is the final evidence rerun and trust
+policy proposal; Milestone 11B-2 and all API/dashboard product-demand output
+remain unapproved. Verification on 2026-09-03: 277 non-integration backend tests
+passed (4 deselected), with Ruff, formatting, mypy, and diff checks clean.
+
+MILESTONE 11B-1 STEP 12 TRUST-POLICY PROPOSAL RECORD
+
+Reviewed the complete Steps 8-11 evidence and created proposed ADR-010. The
+recommended policy allows only an evidence-gated limited preview: safe Milestone
+11A semantics, a fair non-benchmark weekly winner, at least 13 shared completed
+folds, and strictly positive skill against zero are all required before one
+numeric seven-day total can be shown.
+
+The 13-fold value is a provisional preview guardrail, not an accuracy guarantee
+or universal forecasting standard. No supported weekly state, daily prediction,
+skill margin, or bias tolerance is approved. Sparse and intermittent limitations
+must remain visible, and failures stay isolated per product.
+
+The project owner accepted ADR-010 Option B on 2026-09-03.
+
+MILESTONE 11B-2 STEP 1 TRUST-POLICY CONTRACT RECORD
+
+Implemented the accepted preview-only product-level decision boundary in
+src/product_demand/trust_policy.py. Unsafe semantics, no weekly winner,
+unavailable zero comparison, fewer than 13 shared folds, or non-positive skill
+against zero produce an unavailable decision with explicit reasons. An eligible
+product receives limited-preview status for one seven-day total. Policy version
+1 makes supported-weekly construction invalid and never claims date-specific
+predictions.
+
+Eleven focused tests cover the exact threshold and one-fold-below boundary,
+semantic blockers, confirmed product-name fallback, all-zero history, missing
+zero evidence, no weekly winner, cross-product evidence isolation, and stable
+serialization. The next step is API orchestration and response contracts; the
+existing revenue forecast must remain unchanged. Verification on 2026-09-03:
+288 non-integration backend tests passed (4 deselected), with Ruff, formatting,
+mypy, and diff checks clean.
+
+MILESTONE 11B-2 STEP 2 DOMAIN ORCHESTRATION RECORD
+
+Implemented one product-demand domain service that connects readiness, calendar
+construction, evaluation preparation, rolling candidate evaluation, zero-skill
+gating, preview policy, and final seven-day forecast generation. The numeric
+future forecast is created only after all accepted gates pass. The service never
+creates per-date predictions; its daily planning rate is explicitly the weekly
+total divided by seven.
+
+Products are evaluated independently. Mixed datasets retain eligible previews
+while unavailable products keep their reasons. A selected method that cannot
+use the latest history is downgraded to unavailable instead of crashing the
+portfolio. Order-total mode remains globally ineligible for product demand.
+
+Six integration tests cover the full domain flow, mixed product outcomes,
+semantic failure, final forecast downgrade, global unavailability, determinism,
+and input immutability. Verification on 2026-09-03: 294 non-integration backend
+tests passed (4 deselected), with Ruff, formatting, mypy, and diff checks clean.
+The following record documents how that domain service was exposed without
+changing the existing revenue forecast contract.
+
+MILESTONE 11B-2 STEP 3 API AND DASHBOARD VERTICAL-SLICE RECORD
+
+Added an opt-in POST /api/v1/analyses/{analysis_id}/product-demand endpoint over
+the cleaned canonical analysis session. Keeping product demand separate from the
+existing analysis response preserves the monthly revenue forecast and avoids
+running a heavier per-product evaluation unless the user requests it. The API
+accepts explicit coverage, stockout, identity, unit, and closure assumptions and
+returns a typed unavailable, partial-preview, or preview-available result.
+
+The dashboard now contains a clearly labelled Product Demand experimental
+section. Eligible products show one next-seven-day fulfilled-unit total, the
+weekly total divided by seven as an average planning rate, the selected method,
+plain-English selection evidence, and the required preview warning. It never
+shows date-specific predictions or supported-use language. Unavailable products
+remain in their own collapsed section and load in batches of twenty to limit
+visual overload.
+
+Seven API tests cover eligible, unavailable, mixed, low-source-quality,
+order-total, stockout-identity, and missing-session behavior. A fourth Playwright
+journey verifies the complete CSV upload, mapping, validation, dashboard, user
+confirmations, and product preview. Verification on 2026-09-03: 301
+non-integration backend tests passed (4 deselected), all 4 browser journeys
+passed, and backend/frontend lint, formatting, typing, and production build were
+clean. The next product-demand release gate is locked or prospective validation;
+supported weekly use remains unavailable.
+
+MILESTONE 11B-3 GUARDED CATEGORY-FALLBACK RECORD
+
+ADR-011 selected a fallback-only category preview for portfolios whose
+individual products are too intermittent to pass the product-level trust gate.
+The system evaluates a category only after the user confirms mapped category
+assignments, every member has safe demand semantics and a compatible unit, the
+category has at least two products, and no member already has an eligible
+product preview. It never invents categories or divides a category total among
+products.
+
+The category path reuses the existing safe product calendar, rolling-origin
+baseline leaderboard, thirteen-shared-week evidence floor, zero-demand skill
+gate, and preview trust policy. Category results are returned through the
+existing opt-in product-demand endpoint and displayed in a separate dashboard
+section with plain-English scope and non-allocation warnings. Independent
+product and category forecasts are not shown for the same category because
+they would require forecast reconciliation to remain coherent.
+
+Eight focused category tests cover the passing fallback, confirmation,
+missing-category guidance, suppression when a product passes, incompatible
+units, one-product categories, conflicting assignments, and partially missing
+assignments. An API test and a complete Playwright journey cover the external
+contract and browser workflow.
+Verification on 2026-09-08: 310 non-integration backend tests passed (4
+deselected), all 6 browser journeys passed, and Ruff lint/format, mypy,
+frontend lint/build, and diff checks were clean. Locked or prospective
+validation is still required before changing category results from limited
+preview to decision-ready output.
+
+MILESTONE 11B-4 LOCKED PRODUCT-DEMAND EVALUATION RECORD
+
+The frozen ADR-010 preview policy was evaluated on 48 M5 item-store products
+that did not overlap the 24-product development cohort. For each product, model
+selection and the trust decision used only history before a locked thirteen-week
+holdout. The selected method was then frozen while each future week was revealed
+and scored sequentially. This produced 624 forecast opportunities without
+letting holdout outcomes change model selection.
+
+The policy showed 520 previews and abstained from 104, for 83.3% coverage.
+Shown forecasts achieved 72.8% aggregate skill versus zero and 27.2% WAPE.
+Delayed-start, dense, and intermittent strata had positive locked skill. Sparse
+coverage was 33.3%, but those shown sparse forecasts tied the zero benchmark and
+had 100% WAPE. The predeclared every-stratum gate therefore failed.
+
+No model formula, threshold, or preview wording was changed after viewing the
+locked results. Supported weekly use remains unapproved. The locked cohort is
+now evaluation-only and cannot be reused as untouched proof for a revised
+policy. The next step is to compare bounded sparse-demand policy options using
+development/scenario evidence, record the decision in a new ADR, and test any
+revision on another untouched cohort or independent dataset. Full evidence is
+recorded in docs/PRODUCT_DEMAND_LOCKED_EVALUATION.md.
+
+The generated evidence was reproduced a second time with an exact match after
+excluding runtime measurements. Verification on 2026-09-11: 317 non-integration
+backend tests passed (4 deselected), with Ruff lint/format, mypy, and diff checks
+clean.
+
+SPARSE-POLICY DEVELOPMENT COMPARISON RECORD
+
+On 2026-09-15, the existing 24 M5 development products were used for an
+evaluation-only comparison of the current gate, an extra historical consistency
+check, and explicit training-sparse abstention. No previously locked products
+were scored. The protocol was recorded before scores, and every policy decision
+used only history preceding thirteen development-validation weeks.
+
+Both safeguards removed the same thirteen weak forecasts for one sparse item,
+while retaining all eighteen non-sparse product previews. The current gate
+already withheld the other five sparse products. This small development sample
+does not establish a universal sparse cutoff, prove improved forecast formulas,
+or provide untouched release approval. Category fallback was not accuracy-
+compared because the sample does not establish complete business membership.
+
+Results and trade-offs: docs/PRODUCT_DEMAND_SPARSE_POLICY_COMPARISON.md.
+Next checkpoint: owner reviews proposed ADR-012 before any live approval rule
+changes. A future revision requires a new untouched validation protocol; preview
+labels and supported-use prohibition remain unchanged.
+
+MILESTONE 11B-5 FRESH SPARSE-ABSTENTION VALIDATION RECORD
+
+The project owner approved fresh evaluation of the simpler explicit
+training-sparse abstention candidate. A protocol was locked before scoring. The
+48-product M5 cohort had zero overlap with all prior development and locked
+products, and each product contributed thirteen untouched future weeks.
+
+The candidate removed 26 forecasts from two training-sparse products; those
+removed forecasts were worse than zero. It nevertheless retained thirteen
+forecasts for another low-demand product that sat above the fixed training-only
+10% cutoff. Those retained sparse-stratum forecasts had 125% WAPE and -25%
+skill versus zero. The predeclared every-shown-stratum gate failed.
+
+No threshold was adjusted, and the live system was not changed. ADR-012 is
+rejected in its tested form. The scored cohort is now evaluation-only. Full
+interpretation is recorded in
+docs/PRODUCT_DEMAND_SPARSE_ABSTENTION_FRESH_VALIDATION.md. Next: decide whether
+to test a consistency-based safeguard under a new protocol or retain the
+current preview policy while gathering independent-business evidence.
+
+MILESTONE 11B-6 GLOBAL CONSISTENCY DEVELOPMENT RECORD
+
+The three-block consistency candidate was defined before scoring: every current
+forecasting winner had to beat zero separately in each of three recent blocks of
+thirteen shared historical weeks. It was applied to all products to avoid
+another binary sparsity threshold.
+
+The rule withheld the known weak sparse forecast, but also removed 104 forecast-
+weeks that achieved 43.86% positive skill versus zero on later development
+weeks. Coverage fell from 79.17% to 45.83%. Its predeclared advancement gate
+failed, so no fresh cohort was consumed and no live rule changed.
+
+The project has reached a stopping point for sales-only sparse-policy mining.
+Product demand remains transparent, evidence-gated, and preview-only. The known
+sparse limitation stays documented rather than being hidden by post-hoc
+threshold changes. Results are recorded in
+docs/PRODUCT_DEMAND_CONSISTENCY_DEVELOPMENT_RESULT.md.
+
+Next flagship work: revisit ADR-005 prerequisites for bounded RAG explanations
+and gather independent-business demand evidence separately. RAG must not alter
+financial calculations or upgrade unavailable forecasts.
+
+RAG PHASE 0: PORTFOLIO-SAFE FOUNDATION (COMPLETE)
+
+The recruiter demo remains account-free. Each browser receives an unpredictable
+HttpOnly guest session, and CSV uploads, analyses, and future RAG documents are
+scoped to that session. Cross-session access returns not found. This is guest
+isolation for a single-process portfolio demo, not production multi-tenancy.
+
+RAG source documents are temporary, versioned, content-hashed, typed, and held
+in memory behind a replaceable repository contract. Only UTF-8 text and Markdown
+are accepted in this phase. A six-case synthetic evaluation corpus covers
+grounded policy, delivery, supplier, catalogue and calendar questions, plus
+abstention and document prompt injection. The provider-neutral prompt boundary
+labels retrieved excerpts as untrusted evidence.
+
+ADR-013 records the account-free portfolio trade-off. The next bounded coding
+phase is retrieval evaluation: chunk approved documents, retrieve candidates,
+apply thresholds and reranking, and measure Top-k accuracy, precision, recall,
+faithfulness and abstention before adding a model or dashboard chat workflow.
+
+RAG PHASE 1: EVIDENCE RETRIEVAL AND EVALUATION (COMPLETE)
+
+Approved UTF-8 text and Markdown documents are chunked by headings and
+paragraphs, indexed synchronously, and searchable only within the current
+HttpOnly guest session. Upload success means the latest version is searchable;
+an indexing failure rolls back and preserves the prior active version. Older
+versions remain visible as superseded metadata but are excluded from retrieval.
+
+The benchmark now contains 15 synthetic documents and 50 labelled questions:
+30 development cases and 20 locked-test cases. It covers exact questions,
+paraphrases, near-match distractors, multi-document retrieval, unsupported
+questions, and malicious instructions embedded inside otherwise relevant
+documents. Required source IDs and passages support source and chunk metrics.
+
+TF-IDF was retained as the lexical baseline but failed the development Top-3
+recall gate at 80.77%. The frozen MiniLM/Chroma configuration uses 224-token
+chunks, 32-token overlap, 20 recall candidates, a 0.40 similarity threshold,
+near-duplicate removal, source diversity, and at most three final excerpts. It
+needed neither fusion nor lexical reranking because the semantic baseline had no
+development retrieval failures.
+
+The untouched locked test achieved 93.75% Top-1 source accuracy, 94.12% Top-3
+source recall, 76.19% chunk precision, 94.74% chunk recall, 84.46% chunk F1,
+100% unsupported-question abstention, and 8.482 ms warm p95 latency. Every fixed
+release gate passed. One paraphrase miss remains recorded; no post-test tuning
+was performed. JSON and Markdown artifacts live under
+docs/evaluation/rag_phase_1/ and ADR-014 records the decision.
+
+The dashboard now includes an experimental evidence-search panel. It uploads
+approved documents, shows active latest versions, returns cited untrusted
+excerpts with expandable technical scores, and returns no excerpt when evidence
+is insufficient. There is still no Gemini, LLM, agent, or generated business
+answer in this phase. Retrieval failure cannot disable sales analytics.
+
+Next checkpoint: collect and review independent-business forecasting evidence,
+as previously agreed, before beginning RAG Phase 2 grounded answer generation.
+
+FRENCH BAKERY EXTERNAL-SOURCE COMPATIBILITY EVALUATION (COMPLETE)
+
+The public French Bakery Daily Sales source was evaluated as an external-data
+compatibility case without changing the frozen product-demand pipeline. A
+local-only adapter unpacked its nested CSV records, parsed French decimal
+prices, preserved physical source positions, and quarantined malformed records
+without reconstruction.
+
+The source contained 234,005 rows. Of these, 234,004 were parseable and one was
+quarantined. The compatibility evaluator withheld forecasting because required
+or confirmed business meanings were absent: customer identity, completed-sale
+status, interpretation of no-row dates and non-positive quantities, unit of
+measure, and product category. No missing semantics were invented and no
+forecast was produced.
+
+This is a successful external-source rejection test, not a failed forecast
+accuracy test. Its aggregate report is recorded in
+docs/evaluation/french_bakery_source_compatibility.md. The raw source and
+detailed row-position diagnostics remain under ignored data/public/external/.
+This result does not clear the permissioned independent-business checkpoint and
+does not authorize RAG Phase 2.
