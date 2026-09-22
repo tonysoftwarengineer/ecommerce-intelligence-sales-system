@@ -1,0 +1,1254 @@
+{
+  "scope": "Seeded synthetic CSV/API behavior checks; not real-business accuracy validation or production approval.",
+  "seed": 20260915,
+  "scenario_count": 10,
+  "passed_scenarios": 10,
+  "scenarios": [
+    {
+      "name": "01_noisy_weekday_retail",
+      "description": "Noisy daily sales with a weekend uplift.",
+      "expectations_passed": true,
+      "total_rows": 210,
+      "expected": {
+        "product_previews": 1,
+        "category_previews": 0,
+        "unavailable_products": 0,
+        "invalid_rows": 0
+      },
+      "validation": {
+        "can_transform": true,
+        "requires_confirmation": false,
+        "total_rows": 210,
+        "valid_rows": 210,
+        "invalid_rows": 0,
+        "issue_counts": {},
+        "sample_issues": [],
+        "warnings": [
+          "Order statuses: completed=210"
+        ],
+        "blocking_errors": [],
+        "data_quality": {
+          "status": "normal",
+          "invalid_row_percentage": 0.0,
+          "decision_ready": true,
+          "preview_only": false,
+          "restricted_outputs": [],
+          "message": "Every source row passed validation.",
+          "correction_actions": []
+        }
+      },
+      "net_revenue_ngn": 4177500,
+      "assumptions": {
+        "export_covers_all_open_days": true,
+        "stockout_tracking_complete": true,
+        "confirm_product_categories": false
+      },
+      "demand": {
+        "status": "preview_available",
+        "target": "fulfilled_units",
+        "target_definition": "Units recorded as fulfilled sales for one product. This is not customer interest, lost sales, reorder quantity, or ingredient demand.",
+        "horizon_days": 7,
+        "supported_use_approved": false,
+        "preview_product_count": 1,
+        "unavailable_product_count": 0,
+        "preview_category_count": 0,
+        "unavailable_category_count": 0,
+        "unresolved_row_count": 0,
+        "minimum_preview_test_weeks": 13,
+        "products": [
+          {
+            "product_key": "id:RETAIL-01",
+            "product_id": "RETAIL-01",
+            "product_name": "Item RETAIL-01",
+            "identity_source": "product_id",
+            "unit_of_measure": "piece",
+            "trust_state": "limited_preview",
+            "numeric_forecast_allowed": true,
+            "selected_method": "mean_4_weekly_totals",
+            "selected_method_name": "Mean of last 4 weekly totals",
+            "selection_reason": "Mean of last 4 weekly totals had the lowest eligible seven-day-total error and beat forecasting zero across 26 shared historical test weeks.",
+            "evidence": {
+              "shared_test_weeks": 26,
+              "minimum_required_test_weeks": 13,
+              "benchmark": "zero",
+              "benchmark_passed": true,
+              "selected_mean_absolute_error_units": 5.076923076923077,
+              "zero_mean_absolute_error_units": 93.23076923076923,
+              "skill_vs_zero_percent": 94.6
+            },
+            "forecast": {
+              "total_units": 90.25,
+              "average_daily_planning_rate": 12.892857142857142,
+              "forecast_dates": [
+                "2025-07-30",
+                "2025-07-31",
+                "2025-08-01",
+                "2025-08-02",
+                "2025-08-03",
+                "2025-08-04",
+                "2025-08-05"
+              ],
+              "daily_predictions_provided": false
+            },
+            "policy_reason_codes": [],
+            "data_reason_codes": [],
+            "explanations": [
+              "The selected weekly method performed better than forecasting zero on the same historical test weeks. This supports exploration, not an inventory commitment."
+            ],
+            "warning": "Preview \u2014 not decision-ready. This is a seven-day fulfilled-unit estimate, not a reorder quantity or a prediction for each individual day."
+          }
+        ],
+        "categories": [],
+        "dataset_reason_codes": [],
+        "dataset_explanations": [],
+        "category_dataset_reason_codes": [],
+        "category_dataset_explanations": [],
+        "warning": "Preview \u2014 not decision-ready. Use these estimates to explore planning scenarios, not to place inventory orders."
+      }
+    },
+    {
+      "name": "02_growing_demand",
+      "description": "Rising daily demand with noise; assess error, not perfection.",
+      "expectations_passed": true,
+      "total_rows": 210,
+      "expected": {
+        "product_previews": 1,
+        "category_previews": 0,
+        "unavailable_products": 0,
+        "invalid_rows": 0
+      },
+      "validation": {
+        "can_transform": true,
+        "requires_confirmation": false,
+        "total_rows": 210,
+        "valid_rows": 210,
+        "invalid_rows": 0,
+        "issue_counts": {},
+        "sample_issues": [],
+        "warnings": [
+          "Order statuses: completed=210"
+        ],
+        "blocking_errors": [],
+        "data_quality": {
+          "status": "normal",
+          "invalid_row_percentage": 0.0,
+          "decision_ready": true,
+          "preview_only": false,
+          "restricted_outputs": [],
+          "message": "Every source row passed validation.",
+          "correction_actions": []
+        }
+      },
+      "net_revenue_ngn": 4111500,
+      "assumptions": {
+        "export_covers_all_open_days": true,
+        "stockout_tracking_complete": true,
+        "confirm_product_categories": false
+      },
+      "demand": {
+        "status": "preview_available",
+        "target": "fulfilled_units",
+        "target_definition": "Units recorded as fulfilled sales for one product. This is not customer interest, lost sales, reorder quantity, or ingredient demand.",
+        "horizon_days": 7,
+        "supported_use_approved": false,
+        "preview_product_count": 1,
+        "unavailable_product_count": 0,
+        "preview_category_count": 0,
+        "unavailable_category_count": 0,
+        "unresolved_row_count": 0,
+        "minimum_preview_test_weeks": 13,
+        "products": [
+          {
+            "product_key": "id:GROWTH-01",
+            "product_id": "GROWTH-01",
+            "product_name": "Item GROWTH-01",
+            "identity_source": "product_id",
+            "unit_of_measure": "piece",
+            "trust_state": "limited_preview",
+            "numeric_forecast_allowed": true,
+            "selected_method": "last_week_total",
+            "selected_method_name": "Last week total",
+            "selection_reason": "Last week total had the lowest eligible seven-day-total error and beat forecasting zero across 26 shared historical test weeks.",
+            "evidence": {
+              "shared_test_weeks": 26,
+              "minimum_required_test_weeks": 13,
+              "benchmark": "zero",
+              "benchmark_passed": true,
+              "selected_mean_absolute_error_units": 6.6923076923076925,
+              "zero_mean_absolute_error_units": 98.26923076923077,
+              "skill_vs_zero_percent": 93.2
+            },
+            "forecast": {
+              "total_units": 136.0,
+              "average_daily_planning_rate": 19.428571428571427,
+              "forecast_dates": [
+                "2025-07-30",
+                "2025-07-31",
+                "2025-08-01",
+                "2025-08-02",
+                "2025-08-03",
+                "2025-08-04",
+                "2025-08-05"
+              ],
+              "daily_predictions_provided": false
+            },
+            "policy_reason_codes": [],
+            "data_reason_codes": [],
+            "explanations": [
+              "The selected weekly method performed better than forecasting zero on the same historical test weeks. This supports exploration, not an inventory commitment."
+            ],
+            "warning": "Preview \u2014 not decision-ready. This is a seven-day fulfilled-unit estimate, not a reorder quantity or a prediction for each individual day."
+          }
+        ],
+        "categories": [],
+        "dataset_reason_codes": [],
+        "dataset_explanations": [],
+        "category_dataset_reason_codes": [],
+        "category_dataset_explanations": [],
+        "warning": "Preview \u2014 not decision-ready. Use these estimates to explore planning scenarios, not to place inventory orders."
+      }
+    },
+    {
+      "name": "03_intermittent_and_cancellations",
+      "description": "Irregular spare-part sales and three large cancelled orders.",
+      "expectations_passed": true,
+      "total_rows": 86,
+      "expected": {
+        "product_previews": 1,
+        "category_previews": 0,
+        "unavailable_products": 0,
+        "invalid_rows": 0
+      },
+      "validation": {
+        "can_transform": true,
+        "requires_confirmation": false,
+        "total_rows": 86,
+        "valid_rows": 86,
+        "invalid_rows": 0,
+        "issue_counts": {},
+        "sample_issues": [],
+        "warnings": [
+          "Order statuses: cancelled=3, completed=83"
+        ],
+        "blocking_errors": [],
+        "data_quality": {
+          "status": "normal",
+          "invalid_row_percentage": 0.0,
+          "decision_ready": true,
+          "preview_only": false,
+          "restricted_outputs": [],
+          "message": "Every source row passed validation.",
+          "correction_actions": []
+        }
+      },
+      "net_revenue_ngn": 964500,
+      "assumptions": {
+        "export_covers_all_open_days": true,
+        "stockout_tracking_complete": true,
+        "confirm_product_categories": false
+      },
+      "demand": {
+        "status": "preview_available",
+        "target": "fulfilled_units",
+        "target_definition": "Units recorded as fulfilled sales for one product. This is not customer interest, lost sales, reorder quantity, or ingredient demand.",
+        "horizon_days": 7,
+        "supported_use_approved": false,
+        "preview_product_count": 1,
+        "unavailable_product_count": 0,
+        "preview_category_count": 0,
+        "unavailable_category_count": 0,
+        "unresolved_row_count": 0,
+        "minimum_preview_test_weeks": 13,
+        "products": [
+          {
+            "product_key": "id:SPARE-01",
+            "product_id": "SPARE-01",
+            "product_name": "Item SPARE-01",
+            "identity_source": "product_id",
+            "unit_of_measure": "piece",
+            "trust_state": "limited_preview",
+            "numeric_forecast_allowed": true,
+            "selected_method": "sba_croston",
+            "selected_method_name": "SBA Croston expected rate",
+            "selection_reason": "SBA Croston expected rate had the lowest eligible seven-day-total error and beat forecasting zero across 26 shared historical test weeks.",
+            "evidence": {
+              "shared_test_weeks": 26,
+              "minimum_required_test_weeks": 13,
+              "benchmark": "zero",
+              "benchmark_passed": true,
+              "selected_mean_absolute_error_units": 12.352801586721633,
+              "zero_mean_absolute_error_units": 21.423076923076923,
+              "skill_vs_zero_percent": 42.3
+            },
+            "forecast": {
+              "total_units": 29.338618830847086,
+              "average_daily_planning_rate": 4.191231261549584,
+              "forecast_dates": [
+                "2025-07-30",
+                "2025-07-31",
+                "2025-08-01",
+                "2025-08-02",
+                "2025-08-03",
+                "2025-08-04",
+                "2025-08-05"
+              ],
+              "daily_predictions_provided": false
+            },
+            "policy_reason_codes": [],
+            "data_reason_codes": [],
+            "explanations": [
+              "The selected weekly method performed better than forecasting zero on the same historical test weeks. This supports exploration, not an inventory commitment."
+            ],
+            "warning": "Preview \u2014 not decision-ready. This is a seven-day fulfilled-unit estimate, not a reorder quantity or a prediction for each individual day."
+          }
+        ],
+        "categories": [],
+        "dataset_reason_codes": [],
+        "dataset_explanations": [],
+        "category_dataset_reason_codes": [],
+        "category_dataset_explanations": [],
+        "warning": "Preview \u2014 not decision-ready. Use these estimates to explore planning scenarios, not to place inventory orders."
+      }
+    },
+    {
+      "name": "04_category_fallback",
+      "description": "Alternating products fail individually; their combined category passes.",
+      "expectations_passed": true,
+      "total_rows": 20,
+      "expected": {
+        "product_previews": 0,
+        "category_previews": 1,
+        "unavailable_products": 2,
+        "invalid_rows": 0
+      },
+      "validation": {
+        "can_transform": true,
+        "requires_confirmation": false,
+        "total_rows": 20,
+        "valid_rows": 20,
+        "invalid_rows": 0,
+        "issue_counts": {},
+        "sample_issues": [],
+        "warnings": [
+          "Order statuses: completed=20"
+        ],
+        "blocking_errors": [],
+        "data_quality": {
+          "status": "normal",
+          "invalid_row_percentage": 0.0,
+          "decision_ready": true,
+          "preview_only": false,
+          "restricted_outputs": [],
+          "message": "Every source row passed validation.",
+          "correction_actions": []
+        }
+      },
+      "net_revenue_ngn": 210000,
+      "assumptions": {
+        "export_covers_all_open_days": true,
+        "stockout_tracking_complete": true,
+        "confirm_product_categories": true
+      },
+      "demand": {
+        "status": "partial_preview",
+        "target": "fulfilled_units",
+        "target_definition": "Units recorded as fulfilled sales for one product. This is not customer interest, lost sales, reorder quantity, or ingredient demand.",
+        "horizon_days": 7,
+        "supported_use_approved": false,
+        "preview_product_count": 0,
+        "unavailable_product_count": 2,
+        "preview_category_count": 1,
+        "unavailable_category_count": 0,
+        "unresolved_row_count": 0,
+        "minimum_preview_test_weeks": 13,
+        "products": [
+          {
+            "product_key": "id:KIT-A",
+            "product_id": "KIT-A",
+            "product_name": "Item KIT-A",
+            "identity_source": "product_id",
+            "unit_of_measure": "portion",
+            "trust_state": "unavailable",
+            "numeric_forecast_allowed": false,
+            "selected_method": null,
+            "selected_method_name": null,
+            "selection_reason": null,
+            "evidence": {
+              "shared_test_weeks": 14,
+              "minimum_required_test_weeks": 13,
+              "benchmark": "zero",
+              "benchmark_passed": false,
+              "selected_mean_absolute_error_units": 3.5,
+              "zero_mean_absolute_error_units": 3.5,
+              "skill_vs_zero_percent": 0.0
+            },
+            "forecast": null,
+            "policy_reason_codes": [
+              "non_positive_zero_skill"
+            ],
+            "data_reason_codes": [],
+            "explanations": [
+              "Product-demand forecast unavailable because the selected weekly method did not perform better than forecasting zero on the same historical weeks."
+            ],
+            "warning": "Forecast unavailable. Review the explanation before trying again."
+          },
+          {
+            "product_key": "id:KIT-B",
+            "product_id": "KIT-B",
+            "product_name": "Item KIT-B",
+            "identity_source": "product_id",
+            "unit_of_measure": "portion",
+            "trust_state": "unavailable",
+            "numeric_forecast_allowed": false,
+            "selected_method": null,
+            "selected_method_name": null,
+            "selection_reason": null,
+            "evidence": {
+              "shared_test_weeks": 14,
+              "minimum_required_test_weeks": 13,
+              "benchmark": "zero",
+              "benchmark_passed": false,
+              "selected_mean_absolute_error_units": 3.5,
+              "zero_mean_absolute_error_units": 3.5,
+              "skill_vs_zero_percent": 0.0
+            },
+            "forecast": null,
+            "policy_reason_codes": [
+              "non_positive_zero_skill"
+            ],
+            "data_reason_codes": [],
+            "explanations": [
+              "Product-demand forecast unavailable because the selected weekly method did not perform better than forecasting zero on the same historical weeks."
+            ],
+            "warning": "Forecast unavailable. Review the explanation before trying again."
+          }
+        ],
+        "categories": [
+          {
+            "category_key": "category:meal kits",
+            "category_name": "Meal Kits",
+            "product_count": 2,
+            "unit_of_measure": "portion",
+            "trust_state": "limited_preview",
+            "numeric_forecast_allowed": true,
+            "selected_method": "last_week_total",
+            "selected_method_name": "Last week total",
+            "selection_reason": "Last week total had the lowest eligible category-level seven-day-total error and beat forecasting zero across 15 shared historical test weeks.",
+            "evidence": {
+              "shared_test_weeks": 15,
+              "minimum_required_test_weeks": 13,
+              "benchmark": "zero",
+              "benchmark_passed": true,
+              "selected_mean_absolute_error_units": 0.0,
+              "zero_mean_absolute_error_units": 7.0,
+              "skill_vs_zero_percent": 100.0
+            },
+            "forecast": {
+              "total_units": 7.0,
+              "average_daily_planning_rate": 1.0,
+              "forecast_dates": [
+                "2025-05-15",
+                "2025-05-16",
+                "2025-05-17",
+                "2025-05-18",
+                "2025-05-19",
+                "2025-05-20",
+                "2025-05-21"
+              ],
+              "daily_predictions_provided": false
+            },
+            "policy_reason_codes": [],
+            "category_reason_codes": [],
+            "explanations": [
+              "The selected weekly method performed better than forecasting zero on the same historical test weeks. This supports exploration, not an inventory commitment."
+            ],
+            "warning": "Category-level preview \u2014 not decision-ready. This predicts the combined category total and does not allocate demand to individual products."
+          }
+        ],
+        "dataset_reason_codes": [],
+        "dataset_explanations": [],
+        "category_dataset_reason_codes": [],
+        "category_dataset_explanations": [],
+        "warning": "Preview \u2014 not decision-ready. Use these estimates to explore planning scenarios, not to place inventory orders."
+      }
+    },
+    {
+      "name": "05_mixed_products",
+      "description": "Healthy product, new product, and cancelled-only product; isolate failures.",
+      "expectations_passed": true,
+      "total_rows": 450,
+      "expected": {
+        "product_previews": 1,
+        "category_previews": 0,
+        "unavailable_products": 2,
+        "invalid_rows": 0
+      },
+      "validation": {
+        "can_transform": true,
+        "requires_confirmation": false,
+        "total_rows": 450,
+        "valid_rows": 450,
+        "invalid_rows": 0,
+        "issue_counts": {},
+        "sample_issues": [],
+        "warnings": [
+          "Order statuses: cancelled=210, completed=240"
+        ],
+        "blocking_errors": [],
+        "data_quality": {
+          "status": "normal",
+          "invalid_row_percentage": 0.0,
+          "decision_ready": true,
+          "preview_only": false,
+          "restricted_outputs": [],
+          "message": "Every source row passed validation.",
+          "correction_actions": []
+        }
+      },
+      "net_revenue_ngn": 3933000,
+      "assumptions": {
+        "export_covers_all_open_days": true,
+        "stockout_tracking_complete": true,
+        "confirm_product_categories": false
+      },
+      "demand": {
+        "status": "partial_preview",
+        "target": "fulfilled_units",
+        "target_definition": "Units recorded as fulfilled sales for one product. This is not customer interest, lost sales, reorder quantity, or ingredient demand.",
+        "horizon_days": 7,
+        "supported_use_approved": false,
+        "preview_product_count": 1,
+        "unavailable_product_count": 2,
+        "preview_category_count": 0,
+        "unavailable_category_count": 0,
+        "unresolved_row_count": 0,
+        "minimum_preview_test_weeks": 13,
+        "products": [
+          {
+            "product_key": "id:CANCELLED-ONLY",
+            "product_id": "CANCELLED-ONLY",
+            "product_name": "Item CANCELLED-ONLY",
+            "identity_source": "product_id",
+            "unit_of_measure": "piece",
+            "trust_state": "unavailable",
+            "numeric_forecast_allowed": false,
+            "selected_method": null,
+            "selected_method_name": null,
+            "selection_reason": null,
+            "evidence": {
+              "shared_test_weeks": 26,
+              "minimum_required_test_weeks": 13,
+              "benchmark": "zero",
+              "benchmark_passed": false,
+              "selected_mean_absolute_error_units": 0.0,
+              "zero_mean_absolute_error_units": 0.0,
+              "skill_vs_zero_percent": null
+            },
+            "forecast": null,
+            "policy_reason_codes": [
+              "non_positive_zero_skill"
+            ],
+            "data_reason_codes": [],
+            "explanations": [
+              "Product-demand forecast unavailable because the selected weekly method did not perform better than forecasting zero on the same historical weeks."
+            ],
+            "warning": "Forecast unavailable. Review the explanation before trying again."
+          },
+          {
+            "product_key": "id:HEALTHY",
+            "product_id": "HEALTHY",
+            "product_name": "Item HEALTHY",
+            "identity_source": "product_id",
+            "unit_of_measure": "piece",
+            "trust_state": "limited_preview",
+            "numeric_forecast_allowed": true,
+            "selected_method": "mean_4_weekly_totals",
+            "selected_method_name": "Mean of last 4 weekly totals",
+            "selection_reason": "Mean of last 4 weekly totals had the lowest eligible seven-day-total error and beat forecasting zero across 26 shared historical test weeks.",
+            "evidence": {
+              "shared_test_weeks": 26,
+              "minimum_required_test_weeks": 13,
+              "benchmark": "zero",
+              "benchmark_passed": true,
+              "selected_mean_absolute_error_units": 4.365384615384615,
+              "zero_mean_absolute_error_units": 83.65384615384616,
+              "skill_vs_zero_percent": 94.8
+            },
+            "forecast": {
+              "total_units": 82.75,
+              "average_daily_planning_rate": 11.821428571428571,
+              "forecast_dates": [
+                "2025-07-30",
+                "2025-07-31",
+                "2025-08-01",
+                "2025-08-02",
+                "2025-08-03",
+                "2025-08-04",
+                "2025-08-05"
+              ],
+              "daily_predictions_provided": false
+            },
+            "policy_reason_codes": [],
+            "data_reason_codes": [],
+            "explanations": [
+              "The selected weekly method performed better than forecasting zero on the same historical test weeks. This supports exploration, not an inventory commitment."
+            ],
+            "warning": "Preview \u2014 not decision-ready. This is a seven-day fulfilled-unit estimate, not a reorder quantity or a prediction for each individual day."
+          },
+          {
+            "product_key": "id:NEW",
+            "product_id": "NEW",
+            "product_name": "Item NEW",
+            "identity_source": "product_id",
+            "unit_of_measure": "piece",
+            "trust_state": "unavailable",
+            "numeric_forecast_allowed": false,
+            "selected_method": null,
+            "selected_method_name": null,
+            "selection_reason": null,
+            "evidence": {
+              "shared_test_weeks": 0,
+              "minimum_required_test_weeks": 13,
+              "benchmark": "zero",
+              "benchmark_passed": false,
+              "selected_mean_absolute_error_units": null,
+              "zero_mean_absolute_error_units": null,
+              "skill_vs_zero_percent": null
+            },
+            "forecast": null,
+            "policy_reason_codes": [
+              "no_weekly_winner"
+            ],
+            "data_reason_codes": [],
+            "explanations": [
+              "Product-demand forecast unavailable because no weekly method has enough fair historical evidence. Add more complete product history and run the analysis again."
+            ],
+            "warning": "Forecast unavailable. Review the explanation before trying again."
+          }
+        ],
+        "categories": [],
+        "dataset_reason_codes": [],
+        "dataset_explanations": [],
+        "category_dataset_reason_codes": [
+          "missing_product_category"
+        ],
+        "category_dataset_explanations": [
+          "Map a product-category column to make category fallback available."
+        ],
+        "warning": "Preview \u2014 not decision-ready. Use these estimates to explore planning scenarios, not to place inventory orders."
+      }
+    },
+    {
+      "name": "06_short_history",
+      "description": "Thirty-five daily observations cannot supply thirteen shared test weeks.",
+      "expectations_passed": true,
+      "total_rows": 35,
+      "expected": {
+        "product_previews": 0,
+        "category_previews": 0,
+        "unavailable_products": 1,
+        "invalid_rows": 0
+      },
+      "validation": {
+        "can_transform": true,
+        "requires_confirmation": false,
+        "total_rows": 35,
+        "valid_rows": 35,
+        "invalid_rows": 0,
+        "issue_counts": {},
+        "sample_issues": [],
+        "warnings": [
+          "Order statuses: completed=35"
+        ],
+        "blocking_errors": [],
+        "data_quality": {
+          "status": "normal",
+          "invalid_row_percentage": 0.0,
+          "decision_ready": true,
+          "preview_only": false,
+          "restricted_outputs": [],
+          "message": "Every source row passed validation.",
+          "correction_actions": []
+        }
+      },
+      "net_revenue_ngn": 430500,
+      "assumptions": {
+        "export_covers_all_open_days": true,
+        "stockout_tracking_complete": true,
+        "confirm_product_categories": false
+      },
+      "demand": {
+        "status": "unavailable",
+        "target": "fulfilled_units",
+        "target_definition": "Units recorded as fulfilled sales for one product. This is not customer interest, lost sales, reorder quantity, or ingredient demand.",
+        "horizon_days": 7,
+        "supported_use_approved": false,
+        "preview_product_count": 0,
+        "unavailable_product_count": 1,
+        "preview_category_count": 0,
+        "unavailable_category_count": 0,
+        "unresolved_row_count": 0,
+        "minimum_preview_test_weeks": 13,
+        "products": [
+          {
+            "product_key": "id:SHORT",
+            "product_id": "SHORT",
+            "product_name": "Item SHORT",
+            "identity_source": "product_id",
+            "unit_of_measure": "piece",
+            "trust_state": "unavailable",
+            "numeric_forecast_allowed": false,
+            "selected_method": null,
+            "selected_method_name": null,
+            "selection_reason": null,
+            "evidence": {
+              "shared_test_weeks": 0,
+              "minimum_required_test_weeks": 13,
+              "benchmark": "zero",
+              "benchmark_passed": false,
+              "selected_mean_absolute_error_units": null,
+              "zero_mean_absolute_error_units": null,
+              "skill_vs_zero_percent": null
+            },
+            "forecast": null,
+            "policy_reason_codes": [
+              "no_weekly_winner"
+            ],
+            "data_reason_codes": [],
+            "explanations": [
+              "Product-demand forecast unavailable because no weekly method has enough fair historical evidence. Add more complete product history and run the analysis again."
+            ],
+            "warning": "Forecast unavailable. Review the explanation before trying again."
+          }
+        ],
+        "categories": [],
+        "dataset_reason_codes": [],
+        "dataset_explanations": [],
+        "category_dataset_reason_codes": [
+          "missing_product_category"
+        ],
+        "category_dataset_explanations": [
+          "Map a product-category column to make category fallback available."
+        ],
+        "warning": "Product-demand forecast unavailable. Review the explanations and correct or confirm the source data before trying again."
+      }
+    },
+    {
+      "name": "07_unknown_missing_days",
+      "description": "Export completeness is not confirmed: gaps must not become zero sales.",
+      "expectations_passed": true,
+      "total_rows": 191,
+      "expected": {
+        "product_previews": 0,
+        "category_previews": 0,
+        "unavailable_products": 1,
+        "invalid_rows": 0
+      },
+      "validation": {
+        "can_transform": true,
+        "requires_confirmation": false,
+        "total_rows": 191,
+        "valid_rows": 191,
+        "invalid_rows": 0,
+        "issue_counts": {},
+        "sample_issues": [],
+        "warnings": [
+          "Order statuses: completed=191"
+        ],
+        "blocking_errors": [],
+        "data_quality": {
+          "status": "normal",
+          "invalid_row_percentage": 0.0,
+          "decision_ready": true,
+          "preview_only": false,
+          "restricted_outputs": [],
+          "message": "Every source row passed validation.",
+          "correction_actions": []
+        }
+      },
+      "net_revenue_ngn": 2863500,
+      "assumptions": {
+        "export_covers_all_open_days": false,
+        "stockout_tracking_complete": true,
+        "confirm_product_categories": false
+      },
+      "demand": {
+        "status": "unavailable",
+        "target": "fulfilled_units",
+        "target_definition": "Units recorded as fulfilled sales for one product. This is not customer interest, lost sales, reorder quantity, or ingredient demand.",
+        "horizon_days": 7,
+        "supported_use_approved": false,
+        "preview_product_count": 0,
+        "unavailable_product_count": 1,
+        "preview_category_count": 0,
+        "unavailable_category_count": 0,
+        "unresolved_row_count": 0,
+        "minimum_preview_test_weeks": 13,
+        "products": [
+          {
+            "product_key": "id:GAPS",
+            "product_id": "GAPS",
+            "product_name": "Item GAPS",
+            "identity_source": "product_id",
+            "unit_of_measure": "piece",
+            "trust_state": "unavailable",
+            "numeric_forecast_allowed": false,
+            "selected_method": null,
+            "selected_method_name": null,
+            "selection_reason": null,
+            "evidence": {
+              "shared_test_weeks": 0,
+              "minimum_required_test_weeks": 13,
+              "benchmark": "zero",
+              "benchmark_passed": false,
+              "selected_mean_absolute_error_units": null,
+              "zero_mean_absolute_error_units": null,
+              "skill_vs_zero_percent": null
+            },
+            "forecast": null,
+            "policy_reason_codes": [
+              "unsafe_semantics"
+            ],
+            "data_reason_codes": [
+              "incomplete_daily_coverage"
+            ],
+            "explanations": [
+              "The export is not confirmed complete for every open day, so absent rows remain unknown.",
+              "Product-demand forecast unavailable because the product's quantity or calendar meaning is not safe enough for evaluation. Correct the listed data issue and run the analysis again."
+            ],
+            "warning": "Forecast unavailable. Review the explanation before trying again."
+          }
+        ],
+        "categories": [],
+        "dataset_reason_codes": [],
+        "dataset_explanations": [],
+        "category_dataset_reason_codes": [
+          "missing_product_category"
+        ],
+        "category_dataset_explanations": [
+          "Map a product-category column to make category fallback available."
+        ],
+        "warning": "Product-demand forecast unavailable. Review the explanations and correct or confirm the source data before trying again."
+      }
+    },
+    {
+      "name": "08_unrecorded_stockouts",
+      "description": "Stockout tracking is incomplete: observed sales cannot establish unrestricted demand.",
+      "expectations_passed": true,
+      "total_rows": 201,
+      "expected": {
+        "product_previews": 0,
+        "category_previews": 0,
+        "unavailable_products": 1,
+        "invalid_rows": 0
+      },
+      "validation": {
+        "can_transform": true,
+        "requires_confirmation": false,
+        "total_rows": 201,
+        "valid_rows": 201,
+        "invalid_rows": 0,
+        "issue_counts": {},
+        "sample_issues": [],
+        "warnings": [
+          "Order statuses: completed=201"
+        ],
+        "blocking_errors": [],
+        "data_quality": {
+          "status": "normal",
+          "invalid_row_percentage": 0.0,
+          "decision_ready": true,
+          "preview_only": false,
+          "restricted_outputs": [],
+          "message": "Every source row passed validation.",
+          "correction_actions": []
+        }
+      },
+      "net_revenue_ngn": 2985000,
+      "assumptions": {
+        "export_covers_all_open_days": true,
+        "stockout_tracking_complete": false,
+        "confirm_product_categories": false
+      },
+      "demand": {
+        "status": "unavailable",
+        "target": "fulfilled_units",
+        "target_definition": "Units recorded as fulfilled sales for one product. This is not customer interest, lost sales, reorder quantity, or ingredient demand.",
+        "horizon_days": 7,
+        "supported_use_approved": false,
+        "preview_product_count": 0,
+        "unavailable_product_count": 1,
+        "preview_category_count": 0,
+        "unavailable_category_count": 0,
+        "unresolved_row_count": 0,
+        "minimum_preview_test_weeks": 13,
+        "products": [
+          {
+            "product_key": "id:STOCK",
+            "product_id": "STOCK",
+            "product_name": "Item STOCK",
+            "identity_source": "product_id",
+            "unit_of_measure": "piece",
+            "trust_state": "unavailable",
+            "numeric_forecast_allowed": false,
+            "selected_method": null,
+            "selected_method_name": null,
+            "selection_reason": null,
+            "evidence": {
+              "shared_test_weeks": 26,
+              "minimum_required_test_weeks": 13,
+              "benchmark": "zero",
+              "benchmark_passed": true,
+              "selected_mean_absolute_error_units": 9.942307692307692,
+              "zero_mean_absolute_error_units": 65.88461538461539,
+              "skill_vs_zero_percent": 84.9
+            },
+            "forecast": null,
+            "policy_reason_codes": [
+              "unsafe_semantics"
+            ],
+            "data_reason_codes": [
+              "stockout_data_unavailable"
+            ],
+            "explanations": [
+              "Stockout tracking is incomplete, so fulfilled sales may understate customer interest.",
+              "Product-demand forecast unavailable because the product's quantity or calendar meaning is not safe enough for evaluation. Correct the listed data issue and run the analysis again."
+            ],
+            "warning": "Forecast unavailable. Review the explanation before trying again."
+          }
+        ],
+        "categories": [],
+        "dataset_reason_codes": [],
+        "dataset_explanations": [],
+        "category_dataset_reason_codes": [
+          "missing_product_category"
+        ],
+        "category_dataset_explanations": [
+          "Map a product-category column to make category fallback available."
+        ],
+        "warning": "Product-demand forecast unavailable. Review the explanations and correct or confirm the source data before trying again."
+      }
+    },
+    {
+      "name": "09_conflicting_units",
+      "description": "One SKU mixes packs and pieces with no conversion evidence.",
+      "expectations_passed": true,
+      "total_rows": 210,
+      "expected": {
+        "product_previews": 0,
+        "category_previews": 0,
+        "unavailable_products": 1,
+        "invalid_rows": 0
+      },
+      "validation": {
+        "can_transform": true,
+        "requires_confirmation": false,
+        "total_rows": 210,
+        "valid_rows": 210,
+        "invalid_rows": 0,
+        "issue_counts": {},
+        "sample_issues": [],
+        "warnings": [
+          "Order statuses: completed=210"
+        ],
+        "blocking_errors": [],
+        "data_quality": {
+          "status": "normal",
+          "invalid_row_percentage": 0.0,
+          "decision_ready": true,
+          "preview_only": false,
+          "restricted_outputs": [],
+          "message": "Every source row passed validation.",
+          "correction_actions": []
+        }
+      },
+      "net_revenue_ngn": 2713500,
+      "assumptions": {
+        "export_covers_all_open_days": true,
+        "stockout_tracking_complete": true,
+        "confirm_product_categories": false
+      },
+      "demand": {
+        "status": "unavailable",
+        "target": "fulfilled_units",
+        "target_definition": "Units recorded as fulfilled sales for one product. This is not customer interest, lost sales, reorder quantity, or ingredient demand.",
+        "horizon_days": 7,
+        "supported_use_approved": false,
+        "preview_product_count": 0,
+        "unavailable_product_count": 1,
+        "preview_category_count": 0,
+        "unavailable_category_count": 0,
+        "unresolved_row_count": 0,
+        "minimum_preview_test_weeks": 13,
+        "products": [
+          {
+            "product_key": "id:UNIT-CONFLICT",
+            "product_id": "UNIT-CONFLICT",
+            "product_name": "Item UNIT-CONFLICT",
+            "identity_source": "product_id",
+            "unit_of_measure": null,
+            "trust_state": "unavailable",
+            "numeric_forecast_allowed": false,
+            "selected_method": null,
+            "selected_method_name": null,
+            "selection_reason": null,
+            "evidence": {
+              "shared_test_weeks": 0,
+              "minimum_required_test_weeks": 13,
+              "benchmark": "zero",
+              "benchmark_passed": false,
+              "selected_mean_absolute_error_units": null,
+              "zero_mean_absolute_error_units": null,
+              "skill_vs_zero_percent": null
+            },
+            "forecast": null,
+            "policy_reason_codes": [
+              "unsafe_semantics"
+            ],
+            "data_reason_codes": [
+              "unit_conflict"
+            ],
+            "explanations": [
+              "This product uses incompatible units without an explicit conversion rule.",
+              "Product-demand forecast unavailable because the product's quantity or calendar meaning is not safe enough for evaluation. Correct the listed data issue and run the analysis again."
+            ],
+            "warning": "Forecast unavailable. Review the explanation before trying again."
+          }
+        ],
+        "categories": [],
+        "dataset_reason_codes": [],
+        "dataset_explanations": [],
+        "category_dataset_reason_codes": [
+          "missing_product_category"
+        ],
+        "category_dataset_explanations": [
+          "Map a product-category column to make category fallback available."
+        ],
+        "warning": "Product-demand forecast unavailable. Review the explanations and correct or confirm the source data before trying again."
+      }
+    },
+    {
+      "name": "10_many_invalid_rows",
+      "description": "Ninety invalid dates/negative quantities: dashboard preview only, no demand forecast.",
+      "expectations_passed": true,
+      "total_rows": 210,
+      "expected": {
+        "product_previews": 0,
+        "category_previews": 0,
+        "unavailable_products": 0,
+        "invalid_rows": 90
+      },
+      "validation": {
+        "can_transform": true,
+        "requires_confirmation": true,
+        "total_rows": 210,
+        "valid_rows": 120,
+        "invalid_rows": 90,
+        "issue_counts": {
+          "invalid_date": 45,
+          "negative_quantity": 45
+        },
+        "sample_issues": [
+          {
+            "row_number": 2,
+            "field": "quantity",
+            "code": "negative_quantity",
+            "message": "Negative quantity requires an explicitly confirmed return meaning."
+          },
+          {
+            "row_number": 3,
+            "field": "quantity",
+            "code": "negative_quantity",
+            "message": "Negative quantity requires an explicitly confirmed return meaning."
+          },
+          {
+            "row_number": 4,
+            "field": "quantity",
+            "code": "negative_quantity",
+            "message": "Negative quantity requires an explicitly confirmed return meaning."
+          },
+          {
+            "row_number": 5,
+            "field": "quantity",
+            "code": "negative_quantity",
+            "message": "Negative quantity requires an explicitly confirmed return meaning."
+          },
+          {
+            "row_number": 6,
+            "field": "quantity",
+            "code": "negative_quantity",
+            "message": "Negative quantity requires an explicitly confirmed return meaning."
+          },
+          {
+            "row_number": 7,
+            "field": "quantity",
+            "code": "negative_quantity",
+            "message": "Negative quantity requires an explicitly confirmed return meaning."
+          },
+          {
+            "row_number": 8,
+            "field": "quantity",
+            "code": "negative_quantity",
+            "message": "Negative quantity requires an explicitly confirmed return meaning."
+          },
+          {
+            "row_number": 9,
+            "field": "quantity",
+            "code": "negative_quantity",
+            "message": "Negative quantity requires an explicitly confirmed return meaning."
+          },
+          {
+            "row_number": 10,
+            "field": "quantity",
+            "code": "negative_quantity",
+            "message": "Negative quantity requires an explicitly confirmed return meaning."
+          },
+          {
+            "row_number": 11,
+            "field": "quantity",
+            "code": "negative_quantity",
+            "message": "Negative quantity requires an explicitly confirmed return meaning."
+          },
+          {
+            "row_number": 12,
+            "field": "quantity",
+            "code": "negative_quantity",
+            "message": "Negative quantity requires an explicitly confirmed return meaning."
+          },
+          {
+            "row_number": 13,
+            "field": "quantity",
+            "code": "negative_quantity",
+            "message": "Negative quantity requires an explicitly confirmed return meaning."
+          },
+          {
+            "row_number": 14,
+            "field": "quantity",
+            "code": "negative_quantity",
+            "message": "Negative quantity requires an explicitly confirmed return meaning."
+          },
+          {
+            "row_number": 15,
+            "field": "quantity",
+            "code": "negative_quantity",
+            "message": "Negative quantity requires an explicitly confirmed return meaning."
+          },
+          {
+            "row_number": 16,
+            "field": "quantity",
+            "code": "negative_quantity",
+            "message": "Negative quantity requires an explicitly confirmed return meaning."
+          },
+          {
+            "row_number": 17,
+            "field": "quantity",
+            "code": "negative_quantity",
+            "message": "Negative quantity requires an explicitly confirmed return meaning."
+          },
+          {
+            "row_number": 18,
+            "field": "quantity",
+            "code": "negative_quantity",
+            "message": "Negative quantity requires an explicitly confirmed return meaning."
+          },
+          {
+            "row_number": 19,
+            "field": "quantity",
+            "code": "negative_quantity",
+            "message": "Negative quantity requires an explicitly confirmed return meaning."
+          },
+          {
+            "row_number": 20,
+            "field": "quantity",
+            "code": "negative_quantity",
+            "message": "Negative quantity requires an explicitly confirmed return meaning."
+          },
+          {
+            "row_number": 21,
+            "field": "quantity",
+            "code": "negative_quantity",
+            "message": "Negative quantity requires an explicitly confirmed return meaning."
+          }
+        ],
+        "warnings": [
+          "Order statuses: completed=210"
+        ],
+        "blocking_errors": [],
+        "data_quality": {
+          "status": "preview",
+          "invalid_row_percentage": 42.9,
+          "decision_ready": false,
+          "preview_only": true,
+          "restricted_outputs": [
+            "forecast",
+            "diagnostics",
+            "recommendations"
+          ],
+          "message": "42.9% of source rows (90 of 210) will be excluded. This analysis is available for preview only and may not represent the full business. Correct the CSV before using it for decisions.",
+          "correction_actions": [
+            {
+              "field": "order_date",
+              "source_column": "order_date",
+              "issue_code": "invalid_date",
+              "affected_rows": 45,
+              "sample_row_numbers": [
+                167,
+                168,
+                169,
+                170,
+                171
+              ],
+              "problem": "Order date does not match the confirmed date format.",
+              "instruction": "Use real dates that consistently match the confirmed format %Y-%m-%d."
+            },
+            {
+              "field": "quantity",
+              "source_column": "quantity",
+              "issue_code": "negative_quantity",
+              "affected_rows": 45,
+              "sample_row_numbers": [
+                2,
+                3,
+                4,
+                5,
+                6
+              ],
+              "problem": "Negative quantity requires an explicitly confirmed return meaning.",
+              "instruction": "Correct negative quantities or map returned quantity separately."
+            }
+          ]
+        }
+      },
+      "net_revenue_ngn": 1542000,
+      "assumptions": {
+        "export_covers_all_open_days": true,
+        "stockout_tracking_complete": true,
+        "confirm_product_categories": false
+      },
+      "demand": {
+        "status": "unavailable",
+        "target": "fulfilled_units",
+        "target_definition": "Units recorded as fulfilled sales for one product. This is not customer interest, lost sales, reorder quantity, or ingredient demand.",
+        "horizon_days": 7,
+        "supported_use_approved": false,
+        "preview_product_count": 0,
+        "unavailable_product_count": 0,
+        "preview_category_count": 0,
+        "unavailable_category_count": 0,
+        "unresolved_row_count": 0,
+        "minimum_preview_test_weeks": 13,
+        "products": [],
+        "categories": [],
+        "dataset_reason_codes": [
+          "insufficient_data_quality"
+        ],
+        "dataset_explanations": [
+          "42.9% of source rows (90 of 210) will be excluded. This analysis is available for preview only and may not represent the full business. Correct the CSV before using it for decisions."
+        ],
+        "category_dataset_reason_codes": [],
+        "category_dataset_explanations": [],
+        "warning": "Product-demand forecast unavailable. Review the explanations and correct or confirm the source data before trying again."
+      }
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+order_id,order_date,customer_id,revenue,product_id,product_name,quantity,unit_of_measure,order_status,product_category
+KIT-A-0000,2025-01-01,C-000,10500,KIT-A,Item KIT-A,7,portion,Completed,Meal Kits
+KIT-B-0007,2025-01-08,C-007,10500,KIT-B,Item KIT-B,7,portion,Completed,Meal Kits
+KIT-A-0014,2025-01-15,C-014,10500,KIT-A,Item KIT-A,7,portion,Completed,Meal Kits
+KIT-B-0021,2025-01-22,C-021,10500,KIT-B,Item KIT-B,7,portion,Completed,Meal Kits
+KIT-A-0028,2025-01-29,C-028,10500,KIT-A,Item KIT-A,7,portion,Completed,Meal Kits
+KIT-B-0035,2025-02-05,C-035,10500,KIT-B,Item KIT-B,7,portion,Completed,Meal Kits
+KIT-A-0042,2025-02-12,C-005,10500,KIT-A,Item KIT-A,7,portion,Completed,Meal Kits
+KIT-B-0049,2025-02-19,C-012,10500,KIT-B,Item KIT-B,7,portion,Completed,Meal Kits
+KIT-A-0056,2025-02-26,C-019,10500,KIT-A,Item KIT-A,7,portion,Completed,Meal Kits
+KIT-B-0063,2025-03-05,C-026,10500,KIT-B,Item KIT-B,7,portion,Completed,Meal Kits
+KIT-A-0070,2025-03-12,C-033,10500,KIT-A,Item KIT-A,7,portion,Completed,Meal Kits
+KIT-B-0077,2025-03-19,C-003,10500,KIT-B,Item KIT-B,7,portion,Completed,Meal Kits
+KIT-A-0084,2025-03-26,C-010,10500,KIT-A,Item KIT-A,7,portion,Completed,Meal Kits
+KIT-B-0091,2025-04-02,C-017,10500,KIT-B,Item KIT-B,7,portion,Completed,Meal Kits
+KIT-A-0098,2025-04-09,C-024,10500,KIT-A,Item KIT-A,7,portion,Completed,Meal Kits
+KIT-B-0105,2025-04-16,C-031,10500,KIT-B,Item KIT-B,7,portion,Completed,Meal Kits
+KIT-A-0112,2025-04-23,C-001,10500,KIT-A,Item KIT-A,7,portion,Completed,Meal Kits
+KIT-B-0119,2025-04-30,C-008,10500,KIT-B,Item KIT-B,7,portion,Completed,Meal Kits
+KIT-A-0126,2025-05-07,C-015,10500,KIT-A,Item KIT-A,7,portion,Completed,Meal Kits
+KIT-B-0133,2025-05-14,C-022,10500,KIT-B,Item KIT-B,7,portion,Completed,Meal Kits
