@@ -1,0 +1,4 @@
+Invoice,Date,Customer,Total
+A001,2025-01-01,C001,100
+A002,not-a-date,C002,50
+A003,2025-02-01,C003,150

@@ -21,3 +21,26 @@ export function percentChange(current: number, previous: number): number | null 
   if (!previous) return null;
   return ((current - previous) / previous) * 100;
 }
+
+export function createCurrencyFormatter(
+  currency: string,
+  options: { compact?: boolean; whole?: boolean } = {},
+): (value: number) => string {
+  try {
+    const formatter = new Intl.NumberFormat("en", {
+      style: "currency",
+      currency,
+      currencyDisplay: "narrowSymbol",
+      notation: options.compact ? "compact" : "standard",
+      minimumFractionDigits: options.whole || options.compact ? 0 : 2,
+      maximumFractionDigits: options.whole ? 0 : options.compact ? 1 : 2,
+    });
+    return (value: number) => formatter.format(value);
+  } catch {
+    return (value: number) => `${currency} ${value.toLocaleString("en-US")}`;
+  }
+}
+
+export function formatCount(value: number): string {
+  return Math.round(value).toLocaleString("en-US");
+}

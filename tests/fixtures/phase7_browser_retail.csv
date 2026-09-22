@@ -1,0 +1,21 @@
+OrderID,OrderDate,CustomerID,Category,Quantity,UnitPrice,Discount,TotalAmount,PaymentStatus,OrderStatus,City,Currency,RefundAmount,TaxAmount,ShippingAmount
+ORD001,2025-01-01,C001,Electronics,2,25.00,5.00,45.00,Paid,Completed,Lagos,NGN,0,3.38,2.00
+ORD002,2025-02-01,C002,Fashion,3,15.00,0.00,45.00,Paid,Completed,Abuja,NGN,0,3.38,2.00
+ORD003,2025-03-01,C003,Home,1,12.50,2.50,10.00,Paid,Completed,Port Harcourt,NGN,0,0.75,1.00
+ORD004,2025-04-01,C001,Stationery,5,4.00,0.00,20.00,Paid,Completed,Lagos,NGN,0,1.50,1.00
+ORD005,2025-05-01,C004,Electronics,1,25.00,0.00,25.00,Paid,Returned,Ibadan,NGN,25.00,1.88,2.00
+ORD006,2025-06-01,C005,Home,6,6.00,3.00,33.00,Paid,Completed,Kano,NGN,0,2.48,2.00
+ORD007,2025-07-01,C006,Fashion,2,15.00,0.00,30.00,Paid,Completed,Enugu,NGN,0,2.25,2.00
+ORD008,2025-08-01,C007,Sports,2,18.00,4.00,32.00,Paid,Completed,Lagos,NGN,0,2.40,2.00
+ORD009,2025-09-01,C003,Electronics,1,20.00,0.00,20.00,Voided,Cancelled,Port Harcourt,NGN,0,0,0
+ORD010,2025-10-01,C008,Fashion,1,45.00,5.00,40.00,Paid,Completed,Abuja,NGN,0,3.00,2.00
+ORD011,2025-11-01,C009,Electronics,4,25.00,10.00,90.00,Paid,Completed,Benin,NGN,0,6.75,3.00
+ORD012,2025-12-01,C010,Home,2,30.00,0.00,60.00,Paid,Completed,Lagos,NGN,0,4.50,3.00
+ORD013,2026-01-01,C005,Stationery,10,4.00,5.00,35.00,Paid,Completed,Kano,NGN,0,2.63,2.00
+ORD014,2026-02-01,C011,Home,2,12.50,0.00,25.00,Paid,Completed,Jos,NGN,0,1.88,2.00
+ORD015,2026-03-01,C012,Sports,1,18.00,0.00,18.00,Pending,Pending,Abuja,NGN,0,0,0
+ORD016,2026-04-01,C002,Electronics,2,20.00,0.00,40.00,Paid,Completed,Abuja,NGN,0,3.00,2.00
+ORD017,2026-05-01,C013,Fashion,4,15.00,6.00,54.00,Paid,Completed,Lagos,NGN,0,4.05,2.00
+ORD018,2026-06-01,C014,Electronics,1,25.00,0.00,25.00,Paid,Completed,Owerri,NGN,0,1.88,2.00
+ORD019,2026-07-01,C015,Home,1,30.00,0.00,30.00,Disputed,Completed,Port Harcourt,NGN,0,2.25,2.00
+ORD020,2026-08-01,C016,Fashion,2,45.00,10.00,80.00,Paid,Completed,Lagos,NGN,0,6.00,3.00

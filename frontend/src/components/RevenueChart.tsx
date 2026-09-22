@@ -11,13 +11,16 @@ import {
 } from "recharts";
 
 import { useReducedMotion } from "../hooks/useReducedMotion";
-import type { ForecastPoint, MonthlyRevenue } from "../types";
+import type { ForecastPoint } from "../types";
 import { formatCompact } from "../utils";
 import { ChartTooltip } from "./ChartTooltip";
 
 interface RevenueChartProps {
-  months: MonthlyRevenue[];
+  months: Array<{ month: string; revenue: number }>;
   forecast: ForecastPoint[];
+  formatValue?: (value: number) => string;
+  formatAxis?: (value: number) => string;
+  subtitle?: string;
 }
 
 interface Row {
@@ -28,9 +31,9 @@ interface Row {
 
 /** Actual and forecast are one entity (revenue) shown in two states, so they
  *  share a hue and differ by treatment (dashed, dimmed) rather than by color.
- *  The last actual month carries a forecast value too, so the dashed line
- *  starts attached to the solid one instead of floating in space. */
-function buildRows(months: MonthlyRevenue[], forecast: ForecastPoint[]): Row[] {
+ *  When a real forecast exists, the last actual month also carries a forecast
+ *  value so the dashed line starts attached to the solid one. */
+function buildRows(months: Array<{ month: string; revenue: number }>, forecast: ForecastPoint[]): Row[] {
   const actual: Row[] = months.map((m) => ({
     month: m.month,
     revenue: m.revenue,
@@ -38,7 +41,7 @@ function buildRows(months: MonthlyRevenue[], forecast: ForecastPoint[]): Row[] {
   }));
 
   const last = actual[actual.length - 1];
-  if (last) last.forecast = last.revenue;
+  if (last && forecast.length > 0) last.forecast = last.revenue;
 
   const predicted: Row[] = forecast.map((point) => ({
     month: point.month,
@@ -49,7 +52,13 @@ function buildRows(months: MonthlyRevenue[], forecast: ForecastPoint[]): Row[] {
   return [...actual, ...predicted];
 }
 
-export function RevenueChart({ months, forecast }: RevenueChartProps) {
+export function RevenueChart({
+  months,
+  forecast,
+  formatValue,
+  formatAxis = formatCompact,
+  subtitle,
+}: RevenueChartProps) {
   const rows = buildRows(months, forecast);
   const animate = !useReducedMotion();
   const boundary = months[months.length - 1]?.month;
@@ -59,17 +68,27 @@ export function RevenueChart({ months, forecast }: RevenueChartProps) {
       <div className="card__head">
         <div>
           <h3 className="card__title">Revenue Trend</h3>
-          <p className="card__sub">Monthly revenue with {forecast.length}-month forecast</p>
+          <p className="card__sub">
+            {subtitle ?? `Monthly revenue with ${forecast.length}-month forecast`}
+          </p>
         </div>
-        <div className="legend">
+        <div className="legend" aria-label="Chart legend">
           <span className="legend__item">
             <span className="legend__swatch" /> Actual
           </span>
-          <span className="legend__item">
-            <span className="legend__swatch legend__swatch--dashed" /> Forecast
-          </span>
+          {forecast.length > 0 ? (
+            <span className="legend__item">
+              <span className="legend__swatch legend__swatch--dashed" /> Forecast
+            </span>
+          ) : null}
         </div>
       </div>
+
+      {boundary && forecast.length > 0 ? (
+        <p className="forecast-boundary-note">
+          Actual data ends in {boundary}. Forecast begins the following month.
+        </p>
+      ) : null}
 
       <ResponsiveContainer width="100%" height={300}>
         <ComposedChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
@@ -93,31 +112,36 @@ export function RevenueChart({ months, forecast }: RevenueChartProps) {
             tick={{ fontSize: 11, fill: "rgba(255,255,255,0.38)" }}
             tickLine={false}
             axisLine={false}
-            tickFormatter={formatCompact}
+            tickFormatter={formatAxis}
             width={64}
           />
           <Tooltip
-            content={<ChartTooltip />}
+            content={(
+              <ChartTooltip
+                formatValue={formatValue}
+                forecastBoundaryLabel={boundary}
+              />
+            )}
             cursor={{ stroke: "rgba(255,255,255,0.18)", strokeWidth: 1 }}
           />
 
           {/* The area fill necessarily stops where measured data stops. Marking
               that boundary turns an unavoidable hard edge into the useful fact
               it actually represents: everything right of here is predicted. */}
-          {boundary && (
+          {boundary && forecast.length > 0 ? (
             <ReferenceLine
               x={boundary}
               stroke="rgba(255,255,255,0.18)"
               strokeDasharray="3 3"
               label={{
-                value: "forecast →",
+                value: `Forecast begins after ${boundary}`,
                 position: "insideTopRight",
                 fill: "rgba(255,255,255,0.38)",
                 fontSize: 11,
                 offset: 10,
               }}
             />
-          )}
+          ) : null}
 
           <Area
             type="monotone"

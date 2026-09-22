@@ -1,0 +1,19 @@
+order_id,order_date,customer_id,revenue,product_id,product_name,quantity,unit_of_measure,order_status
+ORD-0001,2025-01-01,CUST-001,35000,TOWEL-001,Cotton Bath Towel,7,piece,Completed
+ORD-0002,2025-01-08,CUST-002,35000,TOWEL-001,Cotton Bath Towel,7,piece,Completed
+ORD-0003,2025-01-15,CUST-003,35000,TOWEL-001,Cotton Bath Towel,7,piece,Completed
+ORD-0004,2025-01-22,CUST-004,35000,TOWEL-001,Cotton Bath Towel,7,piece,Completed
+ORD-0005,2025-01-29,CUST-005,35000,TOWEL-001,Cotton Bath Towel,7,piece,Completed
+ORD-0006,2025-02-05,CUST-006,35000,TOWEL-001,Cotton Bath Towel,7,piece,Completed
+ORD-0007,2025-02-12,CUST-007,35000,TOWEL-001,Cotton Bath Towel,7,piece,Completed
+ORD-0008,2025-02-19,CUST-008,35000,TOWEL-001,Cotton Bath Towel,7,piece,Completed
+ORD-0009,2025-02-26,CUST-009,35000,TOWEL-001,Cotton Bath Towel,7,piece,Completed
+ORD-0010,2025-03-05,CUST-010,35000,TOWEL-001,Cotton Bath Towel,7,piece,Completed
+ORD-0011,2025-03-12,CUST-011,35000,TOWEL-001,Cotton Bath Towel,7,piece,Completed
+ORD-0012,2025-03-19,CUST-012,35000,TOWEL-001,Cotton Bath Towel,7,piece,Completed
+ORD-0013,2025-03-26,CUST-013,35000,TOWEL-001,Cotton Bath Towel,7,piece,Completed
+ORD-0014,2025-04-02,CUST-014,35000,TOWEL-001,Cotton Bath Towel,7,piece,Completed
+ORD-0015,2025-04-09,CUST-015,35000,TOWEL-001,Cotton Bath Towel,7,piece,Completed
+ORD-0016,2025-04-16,CUST-016,35000,TOWEL-001,Cotton Bath Towel,7,piece,Completed
+ORD-0017,2025-04-23,CUST-017,35000,TOWEL-001,Cotton Bath Towel,7,piece,Completed
+ORD-0018,2025-04-30,CUST-018,35000,TOWEL-001,Cotton Bath Towel,7,piece,Completed

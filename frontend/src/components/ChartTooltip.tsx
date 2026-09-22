@@ -11,6 +11,8 @@ interface ChartTooltipProps {
   active?: boolean;
   payload?: TooltipEntry[];
   label?: string;
+  formatValue?: (value: number) => string;
+  forecastBoundaryLabel?: string;
 }
 
 const LABELS: Record<string, string> = {
@@ -18,10 +20,19 @@ const LABELS: Record<string, string> = {
   forecast: "Forecast",
 };
 
-export function ChartTooltip({ active, payload, label }: ChartTooltipProps) {
+export function ChartTooltip({
+  active,
+  payload,
+  label,
+  formatValue = formatCurrency,
+  forecastBoundaryLabel,
+}: ChartTooltipProps) {
   if (!active || !payload?.length) return null;
 
-  const rows = payload.filter((entry) => entry.value != null);
+  const isForecastBoundary = Boolean(forecastBoundaryLabel && label === forecastBoundaryLabel);
+  const rows = payload.filter(
+    (entry) => entry.value != null && !(isForecastBoundary && entry.dataKey === "forecast"),
+  );
   if (!rows.length) return null;
 
   return (
@@ -31,9 +42,12 @@ export function ChartTooltip({ active, payload, label }: ChartTooltipProps) {
         <div className="tooltip__row" key={String(entry.dataKey)}>
           <span className="tooltip__dot" style={{ background: entry.color }} />
           <span className="tooltip__name">{LABELS[String(entry.dataKey)] ?? entry.name}</span>
-          <span className="tooltip__value">{formatCurrency(entry.value as number)}</span>
+          <span className="tooltip__value">{formatValue(entry.value as number)}</span>
         </div>
       ))}
+      {isForecastBoundary ? (
+        <div className="tooltip__note">Forecast begins next month.</div>
+      ) : null}
     </div>
   );
 }
