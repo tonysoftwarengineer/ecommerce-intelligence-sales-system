@@ -1,0 +1,8 @@
+{
+  "chunk_max_tokens": 224,
+  "chunk_overlap_tokens": 32,
+  "relevance_threshold": 0.05,
+  "candidate_limit": 20,
+  "evidence_limit": 3,
+  "lexical_reranking": false
+}

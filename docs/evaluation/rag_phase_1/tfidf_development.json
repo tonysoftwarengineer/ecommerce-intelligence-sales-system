@@ -1,0 +1,71 @@
+{
+  "backend": "tfidf",
+  "configuration": {
+    "candidate_limit": 20,
+    "chunk_max_tokens": 224,
+    "chunk_overlap_tokens": 32,
+    "evidence_limit": 3,
+    "lexical_reranking": false,
+    "relevance_threshold": 0.05
+  },
+  "metrics": {
+    "abstention_accuracy": 1.0,
+    "case_count": 30,
+    "chunk_f1": 0.5983,
+    "chunk_precision": 0.4667,
+    "chunk_recall": 0.8333,
+    "cross_session_leakage_count": 0,
+    "failures": [
+      {
+        "case_id": "dev-refund-exact",
+        "reason": "missed_relevant_source",
+        "returned_document_ids": []
+      },
+      {
+        "case_id": "dev-refund-paraphrase",
+        "reason": "missed_relevant_source",
+        "returned_document_ids": [
+          "loyalty-policy-v1"
+        ]
+      },
+      {
+        "case_id": "dev-refund-method",
+        "reason": "missed_relevant_source",
+        "returned_document_ids": [
+          "payment-policy-v1"
+        ]
+      },
+      {
+        "case_id": "dev-points-rate",
+        "reason": "missed_relevant_source",
+        "returned_document_ids": []
+      },
+      {
+        "case_id": "dev-multi-christmas-delivery",
+        "reason": "missed_relevant_source",
+        "returned_document_ids": [
+          "shipping-policy-v1",
+          "refund-policy-v1",
+          "shipping-policy-v1"
+        ]
+      }
+    ],
+    "mean_reciprocal_rank": 0.82,
+    "p50_latency_ms": 1.232,
+    "p95_latency_ms": 1.315,
+    "split": "development",
+    "supported_case_count": 25,
+    "top1_source_accuracy": 0.8,
+    "top3_source_recall": 0.8077,
+    "unsupported_case_count": 5
+  },
+  "overall_release_gate_passed": false,
+  "release_gates": {
+    "abstention_accuracy": true,
+    "cross_session_isolation": true,
+    "top1_source_accuracy": true,
+    "top3_source_recall": false,
+    "warm_p95_latency": true
+  },
+  "split": "development"
+}

@@ -1,0 +1,43 @@
+{
+  "backend": "chroma",
+  "configuration": {
+    "candidate_limit": 20,
+    "chunk_max_tokens": 224,
+    "chunk_overlap_tokens": 32,
+    "evidence_limit": 3,
+    "lexical_reranking": false,
+    "relevance_threshold": 0.4
+  },
+  "metrics": {
+    "abstention_accuracy": 1.0,
+    "case_count": 20,
+    "chunk_f1": 0.8446,
+    "chunk_precision": 0.7619,
+    "chunk_recall": 0.9474,
+    "cross_session_leakage_count": 0,
+    "failures": [
+      {
+        "case_id": "lock-branches",
+        "reason": "missed_relevant_source",
+        "returned_document_ids": []
+      }
+    ],
+    "mean_reciprocal_rank": 0.9375,
+    "p50_latency_ms": 7.623,
+    "p95_latency_ms": 8.482,
+    "split": "locked_test",
+    "supported_case_count": 16,
+    "top1_source_accuracy": 0.9375,
+    "top3_source_recall": 0.9412,
+    "unsupported_case_count": 4
+  },
+  "overall_release_gate_passed": true,
+  "release_gates": {
+    "abstention_accuracy": true,
+    "cross_session_isolation": true,
+    "top1_source_accuracy": true,
+    "top3_source_recall": true,
+    "warm_p95_latency": true
+  },
+  "split": "locked_test"
+}

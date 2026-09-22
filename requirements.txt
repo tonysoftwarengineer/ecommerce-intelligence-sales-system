@@ -10,13 +10,20 @@
 pandas==2.3.3
 kagglehub==0.3.13
 matplotlib==3.9.4
+openpyxl==3.1.5
 
 # --- Forecasting + customer segmentation ---
 scikit-learn==1.6.1
 
+# --- Retrieval evaluation (lazy-loaded by the RAG subsystem) ---
+chromadb==1.5.9
+sentence-transformers==5.1.2
+
 # --- API ---
 fastapi==0.128.8
+python-multipart==0.0.20
 uvicorn[standard]==0.39.0
+python-dotenv==1.1.1     # Python 3.9-compatible local .env loading
 
 # --- Test + tooling ---
 pytest==8.4.2
