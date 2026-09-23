@@ -33,7 +33,7 @@ When updating, keep these headings and replace only the factual content beneath 
 
 ### Updater and date
 
-Codex — 2026-09-23
+Claude Code — 2026-09-23
 
 ### Completed phase
 
@@ -41,6 +41,11 @@ The committed portfolio MVP now includes the generic sales workflow, diagnostics
 product-demand previews, RAG evidence retrieval, experimental grounded document answers, API,
 frontend, browser coverage, and deployment scaffolding. The most recent completed research phase
 was the DataCo public-data product-forecast coverage diagnosis.
+
+This session closed the three CI coverage gaps identified in a senior-engineer architecture
+review: `.github/workflows/ci.yml` now runs integration tests and the Playwright browser suite as
+their own jobs (gated behind the fast lint/type/unit jobs passing first), and runs `pip-audit` /
+`npm audit` as report-only steps on the existing backend/frontend jobs.
 
 ### Changed areas
 
@@ -53,6 +58,10 @@ was the DataCo public-data product-forecast coverage diagnosis.
   experimental.
 - Deployment and portfolio documentation are committed. Use the linked reports for detailed
   findings rather than copying evidence into this snapshot.
+- CI (`.github/workflows/ci.yml`) now has four jobs: `backend` (lint, format check, mypy, unit
+  tests, `pip-audit`), `integration` (needs `backend`; `pytest -q -m integration`), `frontend`
+  (tsc, build, `npm audit`), and `e2e` (needs `backend` + `frontend`; Playwright against the fake
+  RAG provider and tfidf retrieval backend, no real key needed).
 
 ### Verification
 
@@ -64,6 +73,13 @@ was the DataCo public-data product-forecast coverage diagnosis.
   tuned afterward. See the [hard-development report](docs/evaluation/rag_phase2_hard_development.md).
 - For command-level verification and the latest test results, consult the relevant commit and
   evaluation report before claiming a check was rerun.
+- The new `ci.yml` was validated by parsing it with PyYAML and checking the job dependency graph
+  locally; it has not yet been exercised on GitHub's runners. Confirm the first real push shows all
+  four jobs passing before treating this as proven, not just written.
+- `pytest -q -m "not integration"` passed (443 passed, 4 deselected) and `ruff check .` was clean
+  after the prior session's commit-backlog work. `ruff format --check .` and `mypy .` both surfaced
+  pre-existing findings (15 files needing reformatting; a `scripts/` module-resolution error under
+  mypy) that predate this session and were left unfixed — not yet addressed.
 
 ### Current limitations
 
@@ -75,14 +91,26 @@ was the DataCo public-data product-forecast coverage diagnosis.
   scoring, and the untouched locked Phase 2 evaluation has not run.
 - Sessions, uploads, document indexes, and analysis state are temporary and process-local; this is
   not a production multi-tenant deployment.
+- `GEMINI_API_KEY` still needs rotation in Google AI Studio (revoke the current key, generate a new
+  one, update local `.env`). It was never committed to git, but it was read in plaintext during a
+  2026-09-22 architecture review, so treat it as a precautionary rotation. No code change is needed
+  for this — it's a manual account action only.
+- `ruff format --check .` (15 files) and `mypy .` (one `scripts/` module-resolution error) both
+  currently fail if run as real quality gates; CI's `format` and `type check` steps in the
+  `backend` job will fail until these are fixed.
 
 ### Next recommended work
 
-1. Obtain and safely prepare a permissioned, anonymized independent-retailer export, then run the
+1. Rotate `GEMINI_API_KEY` in Google AI Studio and update local `.env` — bounded, no code change.
+2. Confirm the new `integration` and `e2e` CI jobs actually pass on GitHub's runners after the next
+   push (see Verification above — only locally YAML-validated so far, not executed on GitHub).
+3. Fix the pre-existing `ruff format` and `mypy` findings noted under Current limitations, or the
+   `backend` job's format/type-check steps will keep failing.
+4. Obtain and safely prepare a permissioned, anonymized independent-retailer export, then run the
    existing offline evaluator without changing forecast policy after seeing its results.
-2. When the Gemini provider is available, rerun the frozen hard-development RAG Phase 2 evaluation.
+5. When the Gemini provider is available, rerun the frozen hard-development RAG Phase 2 evaluation.
    Run the untouched locked evaluation only if its documented release gates are met.
-3. Treat any cold-start forecasting improvement as a separate user-approved design and evaluation
+6. Treat any cold-start forecasting improvement as a separate user-approved design and evaluation
    phase; do not loosen the live preview rules merely to increase coverage.
 
 ### Decisions requiring the user
