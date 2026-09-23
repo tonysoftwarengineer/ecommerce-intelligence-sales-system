@@ -79,11 +79,7 @@ def evaluate_retrieval(
         if returned_ids and returned_ids[0] in relevant:
             top1_hits += 1
         rank = next(
-            (
-                position
-                for position, value in enumerate(returned_ids, 1)
-                if value in relevant
-            ),
+            (position for position, value in enumerate(returned_ids, 1) if value in relevant),
             0,
         )
         reciprocal_ranks.append(1.0 / rank if rank else 0.0)
@@ -152,8 +148,7 @@ def release_gates(metrics: RetrievalMetrics) -> dict[str, bool]:
 
 def _is_relevant_chunk(case: EvaluationCase, document_id: str, excerpt: str) -> bool:
     return any(
-        required.document_id == document_id
-        and required.passage.lower() in excerpt.lower()
+        required.document_id == document_id and required.passage.lower() in excerpt.lower()
         for required in case.required_evidence
     )
 

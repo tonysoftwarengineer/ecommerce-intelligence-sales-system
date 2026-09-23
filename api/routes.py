@@ -637,9 +637,7 @@ async def upload_rag_document(
             for document in document_store.active_documents(owner_scope_id, analysis_id)
             if document.metadata.filename == filename
         )
-        document = document_store.create(
-            owner_scope_id, analysis_id, filename, document_type, text
-        )
+        document = document_store.create(owner_scope_id, analysis_id, filename, document_type, text)
         try:
             retrieval_service.index_document(document)
             for old_document in previous:
@@ -765,9 +763,7 @@ def answer_from_analysis_documents(
             }
             for claim in result.claims
         ],
-        "evidence": [
-            _rag_evidence_response(item) for item in result.retrieval.evidence
-        ],
+        "evidence": [_rag_evidence_response(item) for item in result.retrieval.evidence],
         "technical": {
             "selected_method": result.retrieval.selected_method,
             "searched_document_count": result.retrieval.searched_document_count,

@@ -18,4 +18,3 @@ def test_guest_session_store_reuses_a_live_session_and_rotates_an_expired_one() 
     rotated, rotated_created = store.resolve(first.session_id)
     assert rotated_created is True
     assert rotated.session_id != first.session_id
-

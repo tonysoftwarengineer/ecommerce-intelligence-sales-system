@@ -21,11 +21,17 @@ def test_retrieval_returns_diverse_cited_evidence_and_abstains_honestly() -> Non
     store = TemporaryDocumentStore(timedelta(hours=1))
     service = _service()
     refund = store.create(
-        "guest-a", ANALYSIS_ID, "refund.md", RagDocumentType.POLICY,
+        "guest-a",
+        ANALYSIS_ID,
+        "refund.md",
+        RagDocumentType.POLICY,
         "# Refunds\nRefunds are allowed within 14 days with a receipt.",
     )
     shipping = store.create(
-        "guest-a", ANALYSIS_ID, "shipping.md", RagDocumentType.POLICY,
+        "guest-a",
+        ANALYSIS_ID,
+        "shipping.md",
+        RagDocumentType.POLICY,
         "# Shipping\nStandard Lagos delivery takes 2 to 4 business days.",
     )
     service.index_document(refund)
@@ -100,7 +106,10 @@ def test_retrieval_never_searches_another_scope() -> None:
     store = TemporaryDocumentStore(timedelta(hours=1))
     service = _service()
     secret = store.create(
-        "guest-a", ANALYSIS_ID, "private.md", RagDocumentType.OTHER_APPROVED,
+        "guest-a",
+        ANALYSIS_ID,
+        "private.md",
+        RagDocumentType.OTHER_APPROVED,
         "The private supplier code is BLUE-77.",
     )
     service.index_document(secret)
@@ -126,7 +135,10 @@ def test_dropping_scope_removes_all_searchable_state() -> None:
     store = TemporaryDocumentStore(timedelta(hours=1))
     service = _service()
     document = store.create(
-        "guest-a", ANALYSIS_ID, "policy.md", RagDocumentType.POLICY,
+        "guest-a",
+        ANALYSIS_ID,
+        "policy.md",
+        RagDocumentType.POLICY,
         "Refund requests are accepted for 14 days.",
     )
     service.index_document(document)

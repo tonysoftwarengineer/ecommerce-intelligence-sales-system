@@ -99,9 +99,12 @@ def test_rag_document_api_is_ephemeral_versioned_and_session_isolated() -> None:
         f"/api/v1/analyses/{analysis_id}/rag/documents/{first_document['document_id']}"
     )
     assert hidden_delete.status_code == 404
-    assert first.delete(
-        f"/api/v1/analyses/{analysis_id}/rag/documents/{first_document['document_id']}"
-    ).status_code == 204
+    assert (
+        first.delete(
+            f"/api/v1/analyses/{analysis_id}/rag/documents/{first_document['document_id']}"
+        ).status_code
+        == 204
+    )
 
 
 def test_rag_document_api_rejects_unapproved_or_binary_sources() -> None:
@@ -133,10 +136,7 @@ def test_rag_evaluation_corpus_has_grounding_abstention_and_injection_cases() ->
     assert len(corpus.cases_for_split("locked_test")) == 20
     assert any(case.should_abstain for case in corpus.cases)
     assert any(case.prompt_injection_case for case in corpus.cases)
-    assert all(
-        case.required_evidence or case.should_abstain
-        for case in corpus.cases
-    )
+    assert all(case.required_evidence or case.should_abstain for case in corpus.cases)
 
 
 def test_prompt_boundary_keeps_retrieved_instructions_in_untrusted_data() -> None:

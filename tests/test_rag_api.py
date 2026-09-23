@@ -132,9 +132,12 @@ def test_deleting_document_removes_its_searchable_chunks() -> None:
     analysis_id = _analysis(client)
     document = _upload(client, analysis_id, "# Refunds\nThe refund window is 14 days.")
 
-    assert client.delete(
-        f"/api/v1/analyses/{analysis_id}/rag/documents/{document['document_id']}"
-    ).status_code == 204
+    assert (
+        client.delete(
+            f"/api/v1/analyses/{analysis_id}/rag/documents/{document['document_id']}"
+        ).status_code
+        == 204
+    )
     response = client.post(
         f"/api/v1/analyses/{analysis_id}/rag/retrieve",
         json={"question": "What is the refund window?"},

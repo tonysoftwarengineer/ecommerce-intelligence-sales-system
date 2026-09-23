@@ -20,9 +20,7 @@ class RetrievalIndex(ABC):
     def add(self, scope_id: str, chunks: tuple[RagChunk, ...]) -> None: ...
 
     @abstractmethod
-    def search(
-        self, scope_id: str, question: str, limit: int
-    ) -> tuple[SearchCandidate, ...]: ...
+    def search(self, scope_id: str, question: str, limit: int) -> tuple[SearchCandidate, ...]: ...
 
     @abstractmethod
     def delete_document(self, scope_id: str, document_id: str) -> None: ...
@@ -48,9 +46,7 @@ class TfidfRetrievalIndex(RetrievalIndex):
             scope = self._chunks.setdefault(scope_id, {})
             scope.update({chunk.chunk_id: chunk for chunk in chunks})
 
-    def search(
-        self, scope_id: str, question: str, limit: int
-    ) -> tuple[SearchCandidate, ...]:
+    def search(self, scope_id: str, question: str, limit: int) -> tuple[SearchCandidate, ...]:
         with self._lock:
             chunks = tuple(self._chunks.get(scope_id, {}).values())
         if not chunks:
@@ -62,9 +58,9 @@ class TfidfRetrievalIndex(RetrievalIndex):
         except ValueError:
             return ()
         scores = cosine_similarity(matrix[-1], matrix[:-1]).ravel()
-        ranked = sorted(
-            zip(chunks, scores), key=lambda item: (-float(item[1]), item[0].chunk_id)
-        )[:limit]
+        ranked = sorted(zip(chunks, scores), key=lambda item: (-float(item[1]), item[0].chunk_id))[
+            :limit
+        ]
         return tuple(
             SearchCandidate(
                 chunk=chunk,
@@ -168,9 +164,7 @@ class ChromaRetrievalIndex(RetrievalIndex):
         except Exception as exc:
             raise IndexUnavailableError("The document could not be indexed") from exc
 
-    def search(
-        self, scope_id: str, question: str, limit: int
-    ) -> tuple[SearchCandidate, ...]:
+    def search(self, scope_id: str, question: str, limit: int) -> tuple[SearchCandidate, ...]:
         collection = self._collection(scope_id)
         if collection.count() == 0:
             return ()
@@ -213,10 +207,12 @@ class ChromaRetrievalIndex(RetrievalIndex):
     def delete_document(self, scope_id: str, document_id: str) -> None:
         try:
             self._collection(scope_id).delete(
-                where={"$and": [
-                    {"retrieval_scope_id": scope_id},
-                    {"document_id": document_id},
-                ]}
+                where={
+                    "$and": [
+                        {"retrieval_scope_id": scope_id},
+                        {"document_id": document_id},
+                    ]
+                }
             )
         except IndexUnavailableError:
             raise

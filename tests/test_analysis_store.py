@@ -14,9 +14,7 @@ def test_analysis_store_expires_sessions_and_does_not_expose_mutable_report() ->
     current = [now]
     store = AnalysisSessionStore(timedelta(minutes=120), clock=lambda: current[0])
 
-    created = store.create(
-        "session-a", "sales.csv", {"kpis": {"net_revenue": 100}}, b"data", b""
-    )
+    created = store.create("session-a", "sales.csv", {"kpis": {"net_revenue": 100}}, b"data", b"")
     created.report["kpis"]["net_revenue"] = 0
 
     assert store.get("session-a", created.analysis_id).report["kpis"]["net_revenue"] == 100

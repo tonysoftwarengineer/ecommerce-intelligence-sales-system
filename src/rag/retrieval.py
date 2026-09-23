@@ -51,9 +51,7 @@ class EvidenceRetrievalService:
         scope[document.metadata.document_id] = chunks
         return chunks
 
-    def delete_document(
-        self, owner_scope_id: str, analysis_id: str, document_id: str
-    ) -> None:
+    def delete_document(self, owner_scope_id: str, analysis_id: str, document_id: str) -> None:
         scope_id = _retrieval_scope_id(owner_scope_id, analysis_id)
         self.index.delete_document(scope_id, document_id)
         scope = self._chunks_by_scope.get(scope_id)
@@ -68,9 +66,7 @@ class EvidenceRetrievalService:
 
     def drop_owner(self, owner_scope_id: str) -> None:
         scope_ids = tuple(
-            scope_id
-            for scope_id, owner in self._owner_by_scope.items()
-            if owner == owner_scope_id
+            scope_id for scope_id, owner in self._owner_by_scope.items() if owner == owner_scope_id
         )
         for scope_id in scope_ids:
             self.index.drop_scope(scope_id)
@@ -82,9 +78,7 @@ class EvidenceRetrievalService:
         self._chunks_by_scope.clear()
         self._owner_by_scope.clear()
 
-    def retrieve(
-        self, owner_scope_id: str, analysis_id: str, question: str
-    ) -> RetrievalResult:
+    def retrieve(self, owner_scope_id: str, analysis_id: str, question: str) -> RetrievalResult:
         started = time.perf_counter()
         scope_id = _retrieval_scope_id(owner_scope_id, analysis_id)
         scope = self._chunks_by_scope.get(scope_id, {})
@@ -100,9 +94,7 @@ class EvidenceRetrievalService:
             )
 
         try:
-            candidates = self.index.search(
-                scope_id, question, limit=self.candidate_limit
-            )
+            candidates = self.index.search(scope_id, question, limit=self.candidate_limit)
         except IndexUnavailableError:
             return self._result(
                 RetrievalStatus.UNAVAILABLE,
@@ -204,9 +196,37 @@ class EvidenceRetrievalService:
 
 def _meaningful_terms(text: str) -> set[str]:
     stopwords = {
-        "a", "an", "and", "are", "as", "at", "be", "by", "do", "does", "for",
-        "from", "how", "i", "in", "is", "it", "of", "on", "or", "the", "to",
-        "was", "what", "when", "where", "which", "who", "why", "will", "with",
+        "a",
+        "an",
+        "and",
+        "are",
+        "as",
+        "at",
+        "be",
+        "by",
+        "do",
+        "does",
+        "for",
+        "from",
+        "how",
+        "i",
+        "in",
+        "is",
+        "it",
+        "of",
+        "on",
+        "or",
+        "the",
+        "to",
+        "was",
+        "what",
+        "when",
+        "where",
+        "which",
+        "who",
+        "why",
+        "will",
+        "with",
     }
     return {value.lower() for value in WORD_PATTERN.findall(text) if value.lower() not in stopwords}
 

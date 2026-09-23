@@ -82,6 +82,7 @@ async def cleanup_expired_temporary_data() -> None:
                 removed_guest_sessions,
             )
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -155,6 +156,7 @@ async def attach_guest_session(request: Request, call_next):
             path="/",
         )
     return response
+
 
 app.add_middleware(
     CORSMiddleware,

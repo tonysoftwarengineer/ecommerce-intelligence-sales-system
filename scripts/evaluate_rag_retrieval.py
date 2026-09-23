@@ -33,9 +33,7 @@ def make_service(
     rerank: bool,
 ) -> EvidenceRetrievalService:
     index = (
-        ChromaRetrievalIndex("all-MiniLM-L6-v2")
-        if backend == "chroma"
-        else TfidfRetrievalIndex()
+        ChromaRetrievalIndex("all-MiniLM-L6-v2") if backend == "chroma" else TfidfRetrievalIndex()
     )
     return EvidenceRetrievalService(
         index=index,

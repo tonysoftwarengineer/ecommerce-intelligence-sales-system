@@ -75,9 +75,7 @@ class TemporaryDocumentStore:
             self._documents[metadata.document_id] = document
             return document
 
-    def get(
-        self, owner_scope_id: str, analysis_id: str, document_id: str
-    ) -> RagDocument:
+    def get(self, owner_scope_id: str, analysis_id: str, document_id: str) -> RagDocument:
         now = self._clock()
         with self._lock:
             document = self._documents.get(document_id)
@@ -92,9 +90,7 @@ class TemporaryDocumentStore:
                 raise DocumentExpiredError(document_id)
             return document
 
-    def list(
-        self, owner_scope_id: str, analysis_id: str
-    ) -> tuple[RagDocumentMetadata, ...]:
+    def list(self, owner_scope_id: str, analysis_id: str) -> tuple[RagDocumentMetadata, ...]:
         now = self._clock()
         with self._lock:
             self._remove_expired(now)
@@ -110,9 +106,7 @@ class TemporaryDocumentStore:
                 )
             )
 
-    def active_documents(
-        self, owner_scope_id: str, analysis_id: str
-    ) -> tuple[RagDocument, ...]:
+    def active_documents(self, owner_scope_id: str, analysis_id: str) -> tuple[RagDocument, ...]:
         now = self._clock()
         with self._lock:
             self._remove_expired(now)

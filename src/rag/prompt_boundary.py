@@ -36,4 +36,3 @@ def build_grounded_explanation_messages(
         {"role": "system", "content": BOUNDED_RAG_SYSTEM_INSTRUCTION},
         {"role": "user", "content": json.dumps(payload, ensure_ascii=False, sort_keys=True)},
     )
-

@@ -133,8 +133,7 @@ def _token_windows(text: str, config: ChunkingConfig) -> list[str]:
     tokens = tokenize(text)
     step = config.max_tokens - config.overlap_tokens
     return [
-        " ".join(tokens[start : start + config.max_tokens])
-        for start in range(0, len(tokens), step)
+        " ".join(tokens[start : start + config.max_tokens]) for start in range(0, len(tokens), step)
     ]
 
 
