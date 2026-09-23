@@ -14,6 +14,12 @@ production multi-tenant SaaS. Product-demand forecasting still needs validation 
 permissioned independent real-business export. RAG answers remain experimental and bounded to
 approved documents. Never describe those checkpoints as complete unless the evidence changes.
 
+## Current Handoff
+
+Before starting work, read [`CLAUDE.md`](CLAUDE.md) after this file. It is the short, rolling
+snapshot of verified progress, limitations, and pending user decisions. This file remains the
+authoritative stable engineering contract.
+
 ## Collaboration Contract
 
 - The user owns product and architecture decisions. Explain options, trade-offs, risks, and a
