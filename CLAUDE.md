@@ -33,7 +33,7 @@ When updating, keep these headings and replace only the factual content beneath 
 
 ### Updater and date
 
-Claude Code — 2026-09-23
+Claude Code — 2026-09-24 (also contains Codex's uncommitted 2026-09-23 RAG rerun notes)
 
 ### Completed phase
 
@@ -42,10 +42,10 @@ product-demand previews, RAG evidence retrieval, experimental grounded document 
 frontend, browser coverage, and deployment scaffolding. The most recent completed research phase
 was the DataCo public-data product-forecast coverage diagnosis.
 
-This session closed the three CI coverage gaps identified in a senior-engineer architecture
-review: `.github/workflows/ci.yml` now runs integration tests and the Playwright browser suite as
-their own jobs (gated behind the fast lint/type/unit jobs passing first), and runs `pip-audit` /
-`npm audit` as report-only steps on the existing backend/frontend jobs.
+The repository is now on GitHub (public: `tonysoftwarengineer/ecommerce-intelligence-sales-system`,
+remote `origin`, branch `main`). The CI coverage gaps from the architecture review are closed and
+proven on GitHub's runners: `.github/workflows/ci.yml` runs integration tests and the Playwright
+browser suite as their own jobs, and runs `pip-audit` / `npm audit` as report-only steps.
 
 ### Changed areas
 
@@ -62,6 +62,12 @@ their own jobs (gated behind the fast lint/type/unit jobs passing first), and ru
   tests, `pip-audit`), `integration` (needs `backend`; `pytest -q -m integration`), `frontend`
   (tsc, build, `npm audit`), and `e2e` (needs `backend` + `frontend`; Playwright against the fake
   RAG provider and tfidf retrieval backend, no real key needed).
+- Quality-gate fixes: all 15 files that failed `ruff format --check` were reformatted (cosmetic
+  only); `scripts/__init__.py` was added so mypy resolves `scripts.<name>` once; mypy now excludes
+  `tests/` (`pyproject.toml`, `exclude = ["^tests/"]`) because 59 pre-existing errors were all
+  loosely typed JSON fixtures in tests, none in `src/`, `api/`, or `scripts/`; and
+  `pythonpath = ["."]` was added to pytest config because bare `pytest` (the documented command)
+  could not import `src`/`api`/`scripts` on CI.
 
 ### Verification
 
@@ -71,15 +77,15 @@ their own jobs (gated behind the fast lint/type/unit jobs passing first), and ru
 - The RAG Phase 2 hard-development evaluation preserved the locked set. Its real-provider run was
   inconclusive because Gemini returned quota/rate-limit failures; no retrieval or answer policy was
   tuned afterward. See the [hard-development report](docs/evaluation/rag_phase2_hard_development.md).
+- A fresh hard-development rerun after local key rotation reached Gemini but was again inconclusive:
+  one provider response and seventeen provider-unavailable cases, including rate-limit and service
+  failures. The run also exceeded the five-second p95 gate. Its detailed trace is local-only under
+  `data/private/`; the locked test remains untouched.
 - For command-level verification and the latest test results, consult the relevant commit and
   evaluation report before claiming a check was rerun.
-- The new `ci.yml` was validated by parsing it with PyYAML and checking the job dependency graph
-  locally; it has not yet been exercised on GitHub's runners. Confirm the first real push shows all
-  four jobs passing before treating this as proven, not just written.
-- `pytest -q -m "not integration"` passed (443 passed, 4 deselected) and `ruff check .` was clean
-  after the prior session's commit-backlog work. `ruff format --check .` and `mypy .` both surfaced
-  pre-existing findings (15 files needing reformatting; a `scripts/` module-resolution error under
-  mypy) that predate this session and were left unfixed — not yet addressed.
+- GitHub Actions run 35861101477 on commit e065f17: all four jobs passed (`backend`, `frontend`,
+  `integration`, `e2e`). Locally, `ruff check .`, `ruff format --check .`, `mypy .` (97 source
+  files), and bare `pytest -q -m "not integration"` (443 passed, 4 deselected) all pass.
 
 ### Current limitations
 
@@ -88,29 +94,33 @@ their own jobs (gated behind the fast lint/type/unit jobs passing first), and ru
 - A permissioned, anonymized export from one independent online retailer is still required for the
   intended-audience forecasting checkpoint.
 - RAG Phase 2 answers are experimental. Gemini quota/rate limits blocked real-provider development
-  scoring, and the untouched locked Phase 2 evaluation has not run.
+  scoring, and the untouched locked Phase 2 evaluation has not run. Do not spend further provider
+  quota on repeated hard-suite runs until availability is stable.
 - Sessions, uploads, document indexes, and analysis state are temporary and process-local; this is
   not a production multi-tenant deployment.
-- `GEMINI_API_KEY` still needs rotation in Google AI Studio (revoke the current key, generate a new
-  one, update local `.env`). It was never committed to git, but it was read in plaintext during a
-  2026-09-22 architecture review, so treat it as a precautionary rotation. No code change is needed
-  for this — it's a manual account action only.
-- `ruff format --check .` (15 files) and `mypy .` (one `scripts/` module-resolution error) both
-  currently fail if run as real quality gates; CI's `format` and `type check` steps in the
-  `backend` job will fail until these are fixed.
+- `mypy` does not check `tests/`; test behavior is enforced by pytest only.
+- The report-only dependency audits flag untriaged findings and do not block CI by design. In run
+  35861101477, `pip-audit` reported 57 known vulnerabilities in 14 packages, including direct pins
+  `chromadb`, `python-multipart` (parses the CSV/document uploads), `python-dotenv`, and `pytest`,
+  plus transitive `starlette`, `anyio`, `transformers`, `pillow`, `click`, and `orjson`. `npm audit`
+  reported one high-severity `nanoid` advisory (fix available via `npm audit fix`). Versions are
+  exact-pinned, so each bump needs its own test run.
+- CI actions emit Node 20 deprecation warnings (`actions/checkout@v4`, `setup-node@v4`,
+  `setup-python@v5`); they are forced onto Node 24 for now.
+- The repository is public; keep `.env`, `data/private/`, and any private evaluation traces out of
+  Git. A tracked-file secret-pattern scan was clean before the first push.
 
 ### Next recommended work
 
-1. Rotate `GEMINI_API_KEY` in Google AI Studio and update local `.env` — bounded, no code change.
-2. Confirm the new `integration` and `e2e` CI jobs actually pass on GitHub's runners after the next
-   push (see Verification above — only locally YAML-validated so far, not executed on GitHub).
-3. Fix the pre-existing `ruff format` and `mypy` findings noted under Current limitations, or the
-   `backend` job's format/type-check steps will keep failing.
-4. Obtain and safely prepare a permissioned, anonymized independent-retailer export, then run the
+1. Triage the audit findings, starting with `python-multipart` (upload parsing on a public API) and
+   `starlette`/`fastapi`; bump exact pins one at a time and rerun the full suite. Decide which of
+   the rest to fix now versus track.
+2. Consider bumping the GitHub Actions versions to clear the Node 20 deprecation warnings.
+3. Obtain and safely prepare a permissioned, anonymized independent-retailer export, then run the
    existing offline evaluator without changing forecast policy after seeing its results.
-5. When the Gemini provider is available, rerun the frozen hard-development RAG Phase 2 evaluation.
-   Run the untouched locked evaluation only if its documented release gates are met.
-6. Treat any cold-start forecasting improvement as a separate user-approved design and evaluation
+4. When Gemini availability is stable, rerun the frozen hard-development RAG Phase 2 evaluation
+   three times. Run the untouched locked evaluation only if every documented development gate passes.
+5. Treat any cold-start forecasting improvement as a separate user-approved design and evaluation
    phase; do not loosen the live preview rules merely to increase coverage.
 
 ### Decisions requiring the user
