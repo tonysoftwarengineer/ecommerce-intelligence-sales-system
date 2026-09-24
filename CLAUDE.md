@@ -60,7 +60,7 @@ browser suite as their own jobs, and runs `pip-audit` / `npm audit` as report-on
   findings rather than copying evidence into this snapshot.
 - CI (`.github/workflows/ci.yml`) now has four jobs: `backend` (lint, format check, mypy, unit
   tests, `pip-audit`), `integration` (needs `backend`; `pytest -q -m integration`), `frontend`
-  (tsc, build, `npm audit`), and `e2e` (needs `backend` + `frontend`; Playwright against the fake
+  (tsc, `npm run lint`, build, `npm audit`), and `e2e` (needs `backend` + `frontend`; Playwright against the fake
   RAG provider and tfidf retrieval backend, no real key needed).
 - Quality-gate fixes: all 15 files that failed `ruff format --check` were reformatted (cosmetic
   only); `scripts/__init__.py` was added so mypy resolves `scripts.<name>` once; mypy now excludes
@@ -105,8 +105,10 @@ browser suite as their own jobs, and runs `pip-audit` / `npm audit` as report-on
   plus transitive `starlette`, `anyio`, `transformers`, `pillow`, `click`, and `orjson`. `npm audit`
   reported one high-severity `nanoid` advisory (fix available via `npm audit fix`). Versions are
   exact-pinned, so each bump needs its own test run.
-- CI actions emit Node 20 deprecation warnings (`actions/checkout@v4`, `setup-node@v4`,
-  `setup-python@v5`); they are forced onto Node 24 for now.
+- The workflow still builds the frontend with Node 20 (`node-version: "20"` in `ci.yml`). Separately,
+  GitHub warns that the JavaScript runtime of the actions themselves (`actions/checkout@v4`,
+  `setup-node@v4`, `setup-python@v5`) is Node 20 and is being forced onto Node 24; that is the
+  actions' own runtime, not the app's Node version.
 - The repository is public; keep `.env`, `data/private/`, and any private evaluation traces out of
   Git. A tracked-file secret-pattern scan was clean before the first push.
 
