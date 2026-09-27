@@ -4,7 +4,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 import api.main as api_main
-from api.routes import analysis_observability, analysis_store, upload_store
+import api.routes as routes
+from api.routes import (
+    analysis_observability,
+    analysis_store,
+    rag_answer_observability,
+    rag_answer_rate_limiter,
+    upload_store,
+)
 from api.upload_store import UploadExpiredError
 
 
@@ -13,10 +20,14 @@ def clear_temporary_uploads():
     upload_store.clear()
     analysis_store.clear()
     analysis_observability.clear()
+    rag_answer_observability.clear()
+    rag_answer_rate_limiter.clear()
     yield
     upload_store.clear()
     analysis_store.clear()
     analysis_observability.clear()
+    rag_answer_observability.clear()
+    rag_answer_rate_limiter.clear()
 
 
 def upload_csv(client: TestClient, csv: str) -> str:
@@ -574,7 +585,9 @@ def test_generic_analysis_creates_restorable_capability_aware_session():
     assert restored.json() == body
 
 
-def test_analysis_observability_reports_aggregate_availability_without_source_data():
+def test_analysis_observability_reports_aggregate_availability_without_source_data(monkeypatch):
+    monkeypatch.setattr(routes, "DEVELOPMENT_OBSERVABILITY_ENABLED", True)
+    monkeypatch.setattr(routes, "DEVELOPMENT_OBSERVABILITY_TOKEN", "test-admin-token")
     client = TestClient(api_main.app)
     upload_id = upload_csv(
         client,
@@ -584,7 +597,10 @@ def test_analysis_observability_reports_aggregate_availability_without_source_da
     request["latest_period_complete"] = True
 
     analyzed = client.post("/api/v1/uploads/analyze", json=request)
-    metrics = client.get("/api/v1/observability/analysis-metrics")
+    metrics = client.get(
+        "/api/v1/observability/analysis-metrics",
+        headers={"Authorization": "Bearer test-admin-token"},
+    )
 
     assert analyzed.status_code == 200
     assert metrics.status_code == 200
@@ -596,6 +612,58 @@ def test_analysis_observability_reports_aggregate_availability_without_source_da
     assert body["diagnostics"]["anomalies"]["status_counts"] == {"unavailable": 1}
     assert body["forecast_status_counts"] == {"unavailable": 1}
     assert "sales.csv" not in body["scope"]
+
+
+def test_observability_endpoints_are_disabled_without_local_opt_in(monkeypatch):
+    monkeypatch.setattr(routes, "DEVELOPMENT_OBSERVABILITY_ENABLED", False)
+    monkeypatch.setattr(routes, "DEVELOPMENT_OBSERVABILITY_TOKEN", "test-admin-token")
+    client = TestClient(api_main.app)
+    auth = {"Authorization": "Bearer test-admin-token"}
+
+    # Disabled means absent, even for a caller holding the right token.
+    assert client.get("/api/v1/observability/analysis-metrics", headers=auth).status_code == 404
+    assert client.get("/api/v1/observability/rag-answer-metrics", headers=auth).status_code == 404
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [
+        {},
+        {"Authorization": "Bearer wrong-token"},
+        {"Authorization": "test-admin-token"},
+        {"Authorization": "Basic test-admin-token"},
+        {"Authorization": "Bearer "},
+    ],
+)
+@pytest.mark.parametrize(
+    "path",
+    ["/api/v1/observability/analysis-metrics", "/api/v1/observability/rag-answer-metrics"],
+)
+def test_enabled_observability_endpoints_hide_from_callers_without_the_token(
+    monkeypatch, path, headers
+):
+    monkeypatch.setattr(routes, "DEVELOPMENT_OBSERVABILITY_ENABLED", True)
+    monkeypatch.setattr(routes, "DEVELOPMENT_OBSERVABILITY_TOKEN", "test-admin-token")
+    client = TestClient(api_main.app)
+
+    response = client.get(path, headers=headers)
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Not found"}
+
+
+def test_enabled_observability_without_a_configured_token_stays_absent(monkeypatch):
+    # Defense in depth: config refuses this combination at startup, but the
+    # route must also never serve metrics with an empty token.
+    monkeypatch.setattr(routes, "DEVELOPMENT_OBSERVABILITY_ENABLED", True)
+    monkeypatch.setattr(routes, "DEVELOPMENT_OBSERVABILITY_TOKEN", "")
+    client = TestClient(api_main.app)
+
+    response = client.get(
+        "/api/v1/observability/rag-answer-metrics", headers={"Authorization": "Bearer "}
+    )
+
+    assert response.status_code == 404
 
 
 def test_generic_analysis_does_not_invent_unmapped_optional_capabilities():

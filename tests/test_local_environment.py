@@ -1,6 +1,18 @@
 from pathlib import Path
 
+import pytest
+
 import config
+
+
+def test_enabling_observability_without_an_admin_token_refuses_to_start() -> None:
+    with pytest.raises(ValueError, match="DEVELOPMENT_OBSERVABILITY_TOKEN"):
+        config.validate_observability_settings(enabled=True, token="")
+
+
+@pytest.mark.parametrize(("enabled", "token"), [(False, ""), (False, "x"), (True, "secret")])
+def test_observability_settings_accept_disabled_or_token_protected(enabled, token) -> None:
+    config.validate_observability_settings(enabled=enabled, token=token)
 
 
 def test_local_dotenv_supplies_a_missing_environment_value(

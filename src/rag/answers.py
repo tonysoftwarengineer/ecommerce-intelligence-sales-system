@@ -26,6 +26,23 @@ class AnswerVerificationError(ValueError):
 
 
 @dataclass(frozen=True)
+class AnswerTokenUsage:
+    """Optional normalized provider usage, retained only as aggregate metrics."""
+
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+
+
+@dataclass(frozen=True)
+class ProviderGeneration:
+    """Provider payload plus optional usage; never contains provider credentials."""
+
+    payload: object
+    usage: Optional[AnswerTokenUsage] = None
+
+
+@dataclass(frozen=True)
 class GroundedClaim:
     text: str
     chunk_id: str
@@ -42,6 +59,7 @@ class GroundedAnswerResult:
     reason_codes: tuple[str, ...]
     claims: tuple[GroundedClaim, ...]
     retrieval: RetrievalResult
+    usage: Optional[AnswerTokenUsage] = None
 
 
 class GroundedAnswerProvider(Protocol):
@@ -179,9 +197,10 @@ def generate_grounded_answer(
             retrieval,
             retrieval.reason_codes or ("retrieval_unavailable",),
         )
+    generation: Optional[ProviderGeneration] = None
     try:
-        raw = provider.generate(question, retrieval.evidence)
-        claims = verify_grounded_answer(raw, retrieval.evidence)
+        generation = _provider_generation(provider.generate(question, retrieval.evidence))
+        claims = verify_grounded_answer(generation.payload, retrieval.evidence)
     except AnswerProviderError as exc:
         reason_codes: tuple[str, ...] = ("answer_provider_unavailable",)
         if exc.reason_code:
@@ -200,6 +219,7 @@ def generate_grounded_answer(
             started,
             retrieval,
             ("generated_answer_failed_verification",),
+            usage=generation.usage if generation is not None else None,
         )
     return _result(
         AnswerStatus.GROUNDED_ANSWER,
@@ -208,6 +228,7 @@ def generate_grounded_answer(
         retrieval,
         (),
         claims,
+        generation.usage,
     )
 
 
@@ -218,6 +239,7 @@ def _result(
     retrieval: RetrievalResult,
     reason_codes: tuple[str, ...],
     claims: tuple[GroundedClaim, ...] = (),
+    usage: Optional[AnswerTokenUsage] = None,
 ) -> GroundedAnswerResult:
     generation_ms = (time.perf_counter() - started) * 1000
     return GroundedAnswerResult(
@@ -228,4 +250,12 @@ def _result(
         reason_codes=reason_codes,
         claims=claims,
         retrieval=retrieval,
+        usage=usage,
     )
+
+
+def _provider_generation(value: object) -> ProviderGeneration:
+    """Keep test doubles compatible while real providers return typed metadata."""
+    if isinstance(value, ProviderGeneration):
+        return value
+    return ProviderGeneration(payload=value)

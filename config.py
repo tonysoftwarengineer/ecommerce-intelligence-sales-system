@@ -67,9 +67,37 @@ RAG_LEXICAL_RERANKING = os.environ.get("RAG_LEXICAL_RERANKING", "false").lower()
     "yes",
 }
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 RAG_ANSWER_MODEL = os.environ.get("RAG_ANSWER_MODEL", "gemini-3.8-flash").strip()
 RAG_ANSWER_TIMEOUT_SECONDS = float(os.environ.get("RAG_ANSWER_TIMEOUT_SECONDS", "5.0"))
 RAG_ANSWER_PROVIDER = os.environ.get("RAG_ANSWER_PROVIDER", "gemini").strip().lower()
+RAG_ANSWER_MAX_OUTPUT_TOKENS = int(os.environ.get("RAG_ANSWER_MAX_OUTPUT_TOKENS", "1024"))
+RAG_ANSWER_RATE_LIMIT_PER_MINUTE = int(os.environ.get("RAG_ANSWER_RATE_LIMIT_PER_MINUTE", "6"))
+DEVELOPMENT_OBSERVABILITY_ENABLED = os.environ.get(
+    "DEVELOPMENT_OBSERVABILITY_ENABLED", "false"
+).lower() in {"1", "true", "yes"}
+# ADR-004 requires the observability endpoints to have administrator
+# authentication or not exist at all. A bare on/off toggle cannot satisfy
+# that on its own, since a copied .env can carry the toggle into a real
+# deployment by accident. Requiring a token turns "must have auth" into a
+# fact the app enforces, not a promise a human has to remember.
+DEVELOPMENT_OBSERVABILITY_TOKEN = os.environ.get("DEVELOPMENT_OBSERVABILITY_TOKEN", "").strip()
+
+
+def validate_observability_settings(enabled: bool, token: str) -> None:
+    if enabled and not token:
+        raise ValueError(
+            "DEVELOPMENT_OBSERVABILITY_ENABLED requires DEVELOPMENT_OBSERVABILITY_TOKEN "
+            "(a shared secret the caller must present): per ADR-004 the endpoints must have "
+            "administrator authentication or not exist."
+        )
+
+
+if RAG_ANSWER_MAX_OUTPUT_TOKENS < 1:
+    raise ValueError("RAG_ANSWER_MAX_OUTPUT_TOKENS must be positive")
+if RAG_ANSWER_RATE_LIMIT_PER_MINUTE < 1:
+    raise ValueError("RAG_ANSWER_RATE_LIMIT_PER_MINUTE must be positive")
+validate_observability_settings(DEVELOPMENT_OBSERVABILITY_ENABLED, DEVELOPMENT_OBSERVABILITY_TOKEN)
 
 TABLE_FILES = {
     "orders": "olist_orders_dataset.csv",

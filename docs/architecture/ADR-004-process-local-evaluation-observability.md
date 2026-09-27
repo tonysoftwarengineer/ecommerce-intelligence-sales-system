@@ -95,8 +95,16 @@ lack of source-data capability is not misrepresented as an application error.
   anomaly or forecast conclusion.
 - Performance changes can be compared before and after future features.
 - No customer-visible reporting behaviour changes.
-- The endpoint must be protected by administrator authentication or removed
-  before any public deployment.
+- The endpoints must be protected by administrator authentication or not exist.
+  They are disabled by default and return `404`. Enabling them with
+  `DEVELOPMENT_OBSERVABILITY_ENABLED=true` also requires
+  `DEVELOPMENT_OBSERVABILITY_TOKEN`; the application refuses to start if the
+  toggle is on without a token, and callers must present it as
+  `Authorization: Bearer <token>`. A missing or wrong token also returns `404`,
+  so an unauthenticated caller cannot confirm the endpoints exist. This makes
+  the requirement enforced by code rather than by remembering to leave a
+  toggle off, which a copied `.env` could silently undo. A shared token is a
+  portfolio-grade control, not per-user administrator accounts or audit logging.
 - Durable monitoring, alerting, and feedback storage remain explicit future
   work.
 

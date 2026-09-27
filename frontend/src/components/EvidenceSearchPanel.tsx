@@ -78,6 +78,7 @@ export function EvidenceSearchPanel({ analysisId }: EvidenceSearchPanelProps) {
     if (normalizedQuestion.length < 3) return;
     setSearching(true);
     setError(null);
+    setResult(null);
     try {
       setResult(await getGroundedRagAnswer(analysisId, normalizedQuestion));
     } catch (reason) {
@@ -167,8 +168,6 @@ export function EvidenceSearchPanel({ analysisId }: EvidenceSearchPanelProps) {
       {result ? (
         <EvidenceResult
           result={result}
-          onRetry={() => void requestGroundedAnswer()}
-          retrying={searching}
         />
       ) : null}
     </section>
@@ -177,12 +176,8 @@ export function EvidenceSearchPanel({ analysisId }: EvidenceSearchPanelProps) {
 
 function EvidenceResult({
   result,
-  onRetry,
-  retrying,
 }: {
   result: RagAnswerResponse;
-  onRetry: () => void;
-  retrying: boolean;
 }) {
   if (result.status === "unavailable") {
     const providerUnavailable =
@@ -193,11 +188,8 @@ function EvidenceResult({
         {providerUnavailable ? (
           <>
             <p>
-              Relevant evidence was found, but Gemini is temporarily unavailable. No answer was generated.
+              Relevant evidence was found, but {providerDisplayName(result.provider)} is temporarily unavailable. No answer was generated. Please try again in a few minutes.
             </p>
-            <button className="button button--secondary" type="button" disabled={retrying} onClick={onRetry}>
-              {retrying ? "Retrying…" : "Retry grounded answer"}
-            </button>
           </>
         ) : (
           <p>No AI claim was returned. Your dashboard and Phase 1 evidence index are unaffected.</p>
@@ -250,6 +242,14 @@ function EvidenceResult({
       <TechnicalSummary result={result} />
     </div>
   );
+}
+
+function providerDisplayName(provider: string): string {
+  const providerNames: Record<string, string> = {
+    gemini_rest: "Gemini",
+    groq_rest: "Groq",
+  };
+  return providerNames[provider] ?? "the selected AI provider";
 }
 
 function TechnicalSummary({ result }: { result: RagAnswerResponse }) {

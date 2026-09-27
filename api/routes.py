@@ -1,3 +1,4 @@
+import hmac
 import re
 import time
 from collections import Counter
@@ -26,7 +27,9 @@ from api.product_demand import (
     product_demand_assumptions_from_request,
     product_demand_data_quality_unavailable_response,
 )
-from api.rag_answer_service import answer_provider
+from api.rag_answer_observability import RagAnswerObservability
+from api.rag_answer_rate_limit import RagAnswerRateLimiter
+from api.rag_answer_service import answer_provider, provider_is_configured
 from api.rag_service import retrieval_service
 from api.schemas import (
     AnalysisObservabilityResponse,
@@ -44,6 +47,7 @@ from api.schemas import (
     MappingSuggestionsResponse,
     ProductDemandRequest,
     ProductDemandResponse,
+    RagAnswerObservabilityResponse,
     RagAnswerResponse,
     RagDocumentListResponse,
     RagDocumentMetadataResponse,
@@ -69,6 +73,9 @@ from api.upload_store import (
 )
 from config import (
     ANALYSIS_TTL_MINUTES,
+    DEVELOPMENT_OBSERVABILITY_ENABLED,
+    DEVELOPMENT_OBSERVABILITY_TOKEN,
+    RAG_ANSWER_RATE_LIMIT_PER_MINUTE,
     RAG_DOCUMENT_MAX_BYTES,
     RAG_DOCUMENT_TTL_MINUTES,
     UPLOAD_MAX_BYTES,
@@ -99,6 +106,8 @@ upload_store = TemporaryUploadStore(ttl=timedelta(minutes=UPLOAD_TTL_MINUTES))
 analysis_store = AnalysisSessionStore(ttl=timedelta(minutes=ANALYSIS_TTL_MINUTES))
 document_store = TemporaryDocumentStore(ttl=timedelta(minutes=RAG_DOCUMENT_TTL_MINUTES))
 analysis_observability = AnalysisObservability()
+rag_answer_observability = RagAnswerObservability()
+rag_answer_rate_limiter = RagAnswerRateLimiter(RAG_ANSWER_RATE_LIMIT_PER_MINUTE)
 APPROVED_RAG_SUFFIXES = {".md", ".txt"}
 rag_transaction_lock = RLock()
 
@@ -120,6 +129,19 @@ def _preview_dataframe(
         "dtypes": {str(column): str(dtype) for column, dtype in df.dtypes.items()},
         "sample_rows": privacy_safe_preview_records(raw_df, CSV_PREVIEW_SAMPLE_ROWS),
     }
+
+
+def _require_observability_access(request: Request) -> None:
+    # 404 rather than 401/403 so an unauthenticated caller cannot tell the
+    # endpoint exists, matching how cross-scope document access fails.
+    token = DEVELOPMENT_OBSERVABILITY_TOKEN
+    if not DEVELOPMENT_OBSERVABILITY_ENABLED or not token:
+        raise HTTPException(status_code=404, detail="Not found")
+    scheme, _, presented = request.headers.get("authorization", "").partition(" ")
+    if scheme.lower() != "bearer" or not hmac.compare_digest(
+        presented.strip().encode(), token.encode()
+    ):
+        raise HTTPException(status_code=404, detail="Not found")
 
 
 def _owner_scope_id(request: Request) -> str:
@@ -290,9 +312,17 @@ def health():
 
 
 @router.get("/observability/analysis-metrics", response_model=AnalysisObservabilityResponse)
-def analysis_metrics():
-    """Expose privacy-safe local evaluation metrics; production needs admin access."""
+def analysis_metrics(request: Request):
+    """Expose privacy-safe evaluation metrics to a caller holding the admin token."""
+    _require_observability_access(request)
     return analysis_observability.snapshot()
+
+
+@router.get("/observability/rag-answer-metrics", response_model=RagAnswerObservabilityResponse)
+def rag_answer_metrics(request: Request):
+    """Expose aggregate answer metrics to a caller holding the admin token."""
+    _require_observability_access(request)
+    return rag_answer_observability.snapshot()
 
 
 @router.get("/report", response_model=ReportResponse)
@@ -745,7 +775,29 @@ def answer_from_analysis_documents(
     question = _validate_english_question(payload.question)
     with rag_transaction_lock:
         retrieval = retrieval_service.retrieve(owner_scope_id, analysis_id, question)
+    provider_attempted = False
+    if (
+        retrieval.status.value == "evidence_available"
+        and retrieval.evidence
+        and provider_is_configured(answer_provider)
+    ):
+        decision = rag_answer_rate_limiter.consume(owner_scope_id)
+        if not decision.allowed:
+            rag_answer_observability.record_rate_limited(
+                answer_provider.name,
+                answer_provider.model,
+            )
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    "Too many grounded-answer requests. Please try again in "
+                    f"{decision.retry_after_seconds} seconds."
+                ),
+                headers={"Retry-After": str(decision.retry_after_seconds)},
+            )
+        provider_attempted = True
     result = generate_grounded_answer(question, retrieval, answer_provider)
+    rag_answer_observability.record_result(result, provider_attempted)
     return {
         "status": result.status,
         "analysis_id": analysis_id,

@@ -15,11 +15,18 @@ The portfolio demo has anonymous guests rather than user accounts and durable te
 - Bind each temporary RAG document to both the anonymous guest and one `analysis_id`.
 - Preserve Phase 1 retrieval as a separate evidence-only endpoint.
 - Generate an answer only after Phase 1 returns eligible evidence.
-- Use a provider-neutral interface with a Gemini REST adapter. The API key remains server-side and the model is configurable through `RAG_ANSWER_MODEL`.
+- Use a provider-neutral interface with Gemini and Groq REST adapters. The selected provider's API key remains server-side and the model is configurable through `RAG_ANSWER_MODEL`. Groq is an explicit local selection using `openai/gpt-oss-20b`; there is no automatic provider fallback.
 - Send the provider only the English question and up to three retrieved excerpts. Uploaded document text is labelled untrusted data and no tools are available.
 - Require one to three structured claims. Each claim names a retrieved chunk and includes an exact quote from it.
 - Reject the whole generated output when its structure, chunk ownership, citation, or quote cannot be verified deterministically.
 - Return a bounded unavailable or insufficient-evidence result with no generated claims when retrieval, the provider, or verification fails.
+- Cap each provider response at a configurable 1,024 generated tokens by default. Record only
+  aggregate usage and latency locally; never retain questions, excerpts, document IDs, guest IDs,
+  or credentials in answer observability.
+- Limit each anonymous guest to six provider-backed answer attempts per rolling minute. Retrieve
+  first, so insufficient-evidence questions consume no provider budget. A local limit returns HTTP
+  429 and a retry time; provider outages return a friendly unavailable result without automatic
+  retry, provider fallback, or retriever fallback.
 - Keep the feature labelled experimental until the locked Phase 2 release gates pass.
 
 ## Options Considered
@@ -39,10 +46,12 @@ This is outside the current need. It would expand authority, prompt-injection ex
 ## Consequences
 
 - Two analyses belonging to the same guest cannot share documents accidentally.
-- Gemini can phrase claims but cannot calculate sales, query CSV rows, run tools, or override retrieval policy.
+- The selected provider can phrase claims but cannot calculate sales, query CSV rows, run tools, or override retrieval policy.
 - Exact-quote verification provides strong attribution, not proof that a document is factually correct.
 - Provider failure does not affect analytics or Phase 1 evidence retrieval.
-- Without `GEMINI_API_KEY`, grounded answers are unavailable while document indexing and retrieval remain operational.
+- Without the selected provider's key, grounded answers are unavailable while document indexing and retrieval remain operational.
+- The local observability endpoint and rate limiter are process-local portfolio controls, not a
+  production distributed quota, billing, or operations system.
 - Temporary process-local storage and anonymous cookies remain portfolio limitations, not production tenancy.
 
 ## Explicit Non-goals
@@ -55,4 +64,4 @@ This is outside the current need. It would expand authority, prompt-injection ex
 
 - Unit tests cover exact quotes, unknown chunks, malformed output, provider failures, and prompt-injection boundaries.
 - API tests cover cross-guest and cross-analysis isolation and answer abstention.
-- Browser tests use an explicit deterministic fake provider; Gemini evaluation is a separate recorded run.
+- Browser tests use an explicit deterministic fake provider; each real-provider evaluation is a separate recorded run.

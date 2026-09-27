@@ -3,8 +3,15 @@ from fastapi.testclient import TestClient
 
 import api.main as api_main
 import api.routes as routes
+from api.rag_answer_service import UnavailableAnswerProvider
 from api.rag_service import retrieval_service as default_retrieval_service
-from api.routes import analysis_store, document_store, upload_store
+from api.routes import (
+    analysis_store,
+    document_store,
+    rag_answer_observability,
+    rag_answer_rate_limiter,
+    upload_store,
+)
 from src.rag.index import IndexUnavailableError, RetrievalIndex, TfidfRetrievalIndex
 from src.rag.retrieval import EvidenceRetrievalService
 
@@ -16,12 +23,16 @@ def clear_state(monkeypatch):
     analysis_store.clear()
     document_store.clear()
     default_retrieval_service.clear()
+    rag_answer_observability.clear()
+    rag_answer_rate_limiter.clear()
     api_main.guest_session_store.clear()
     yield
     upload_store.clear()
     analysis_store.clear()
     document_store.clear()
     default_retrieval_service.clear()
+    rag_answer_observability.clear()
+    rag_answer_rate_limiter.clear()
     api_main.guest_session_store.clear()
 
 
@@ -265,6 +276,93 @@ def test_answer_abstains_before_provider_and_bounds_invalid_output(monkeypatch) 
     assert invalid.json()["reason_codes"] == ["generated_answer_failed_verification"]
 
 
+def test_answer_rate_limit_preserves_unsupported_abstention_and_exposes_safe_metrics(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(routes, "DEVELOPMENT_OBSERVABILITY_ENABLED", True)
+    monkeypatch.setattr(routes, "DEVELOPMENT_OBSERVABILITY_TOKEN", "test-admin-token")
+    client = TestClient(api_main.app)
+    analysis_id = _analysis(client)
+    provider = _ExactQuoteProvider()
+    monkeypatch.setattr(routes, "answer_provider", provider)
+    _upload(
+        client,
+        analysis_id,
+        "# Delivery\nStandard Lagos delivery takes 2 to 4 business days.",
+        "private-policy.md",
+    )
+
+    unsupported = client.post(
+        f"/api/v1/analyses/{analysis_id}/rag/answer",
+        json={"question": "Which television advertisement caused profit to increase?"},
+    )
+    supported = [
+        client.post(
+            f"/api/v1/analyses/{analysis_id}/rag/answer",
+            json={"question": "How long does standard Lagos delivery take?"},
+        )
+        for _ in range(6)
+    ]
+    limited = client.post(
+        f"/api/v1/analyses/{analysis_id}/rag/answer",
+        json={"question": "How long does standard Lagos delivery take?"},
+    )
+    metrics = client.get(
+        "/api/v1/observability/rag-answer-metrics",
+        headers={"Authorization": "Bearer test-admin-token"},
+    )
+
+    assert unsupported.status_code == 200
+    assert unsupported.json()["status"] == "insufficient_evidence"
+    assert all(response.status_code == 200 for response in supported)
+    assert provider.call_count == 6
+    assert limited.status_code == 429
+    assert limited.headers["Retry-After"] == "60"
+    assert limited.json()["detail"] == (
+        "Too many grounded-answer requests. Please try again in 60 seconds."
+    )
+    assert metrics.status_code == 200
+    body = metrics.json()
+    assert body["answer_requests"] == 8
+    assert body["provider_backed_attempts"] == 6
+    assert body["rate_limited_requests"] == 1
+    assert body["usage_unavailable_count"] == 6
+    assert body["status_counts"] == {
+        "grounded_answer": 6,
+        "insufficient_evidence": 1,
+        "rate_limited": 1,
+    }
+    assert "private-policy.md" not in str(body)
+    assert "How long does standard Lagos delivery take?" not in str(body)
+
+
+def test_unconfigured_provider_does_not_consume_answer_allowance(monkeypatch) -> None:
+    client = TestClient(api_main.app)
+    analysis_id = _analysis(client)
+    _upload(
+        client,
+        analysis_id,
+        "# Delivery\nStandard Lagos delivery takes 2 to 4 business days.",
+        "shipping.md",
+    )
+    monkeypatch.setattr(routes, "answer_provider", UnavailableAnswerProvider("not-configured"))
+
+    responses = [
+        client.post(
+            f"/api/v1/analyses/{analysis_id}/rag/answer",
+            json={"question": "How long does standard Lagos delivery take?"},
+        )
+        for _ in range(7)
+    ]
+
+    assert all(response.status_code == 200 for response in responses)
+    assert all(response.json()["status"] == "unavailable" for response in responses)
+    metrics = rag_answer_observability.snapshot()
+    assert metrics["answer_requests"] == 7
+    assert metrics["provider_backed_attempts"] == 0
+    assert metrics["usage_unavailable_count"] == 0
+
+
 def test_no_document_invalid_question_and_index_unavailable_outcomes(monkeypatch) -> None:
     client = TestClient(api_main.app)
     analysis_id = _analysis(client)
@@ -325,7 +423,11 @@ class _ExactQuoteProvider:
     name = "fake"
     model = "deterministic-test-provider"
 
+    def __init__(self) -> None:
+        self.call_count = 0
+
     def generate(self, question, evidence):
+        self.call_count += 1
         quote = "Standard Lagos delivery takes 2 to 4 business days."
         return {
             "claims": [

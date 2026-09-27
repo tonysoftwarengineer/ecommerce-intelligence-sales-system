@@ -267,14 +267,34 @@ test("walks a fictional online retailer from sales upload to demand preview and 
 
   await page.route("**/rag/answer", async (route) => {
     await route.fulfill({
+      status: 429,
+      contentType: "application/json",
+      headers: { "Retry-After": "60" },
+      body: JSON.stringify({
+        detail: "Too many grounded-answer requests. Please try again in 60 seconds.",
+      }),
+    });
+  });
+  await question.fill("How long does standard delivery take?");
+  await panel.getByRole("button", { name: "Get grounded answer" }).click();
+  await expect(
+    panel
+      .getByRole("alert")
+      .filter({ hasText: "Too many grounded-answer requests. Please try again in 60 seconds." }),
+  ).toBeVisible();
+  await expect(panel.getByRole("heading", { name: "Grounded answer", exact: true })).toHaveCount(0);
+  await page.unroute("**/rag/answer");
+
+  await page.route("**/rag/answer", async (route) => {
+    await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
         status: "unavailable",
         analysis_id: "browser-test",
         search_scope: "active_latest_documents_in_anonymous_guest_analysis",
-        provider: "unavailable",
-        model: "gemini-3.8-flash",
+        provider: "groq_rest",
+        model: "openai/gpt-oss-20b",
         latency_ms: 1,
         reason_codes: ["answer_provider_unavailable"],
         claims: [],
@@ -311,8 +331,11 @@ test("walks a fictional online retailer from sales upload to demand preview and 
   await expect(
     panel.getByRole("heading", { name: "Grounded answer is temporarily unavailable" }),
   ).toBeVisible();
-  await expect(panel.getByText("Relevant evidence was found, but Gemini is temporarily unavailable.")).toBeVisible();
-  await expect(panel.getByRole("button", { name: "Retry grounded answer" })).toBeVisible();
+  await expect(
+    panel.getByText(
+      "Relevant evidence was found, but Groq is temporarily unavailable. No answer was generated. Please try again in a few minutes.",
+    ),
+  ).toBeVisible();
   await page.unroute("**/rag/answer");
 
   await question.fill("Which television advertisement caused profit to increase?");

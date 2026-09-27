@@ -119,6 +119,21 @@ class AnalysisObservabilityResponse(BaseModel):
     forecast_status_counts: dict[str, int]
 
 
+class RagAnswerObservabilityResponse(BaseModel):
+    scope: str
+    answer_requests: int
+    provider_backed_attempts: int
+    rate_limited_requests: int
+    usage_unavailable_count: int
+    latency_ms: AnalysisLatencyMetrics
+    input_tokens: AnalysisLatencyMetrics
+    output_tokens: AnalysisLatencyMetrics
+    total_tokens: AnalysisLatencyMetrics
+    status_counts: dict[str, int]
+    reason_code_counts: dict[str, int]
+    provider_model_counts: dict[str, int]
+
+
 class RagDocumentMetadataResponse(BaseModel):
     document_id: str
     analysis_id: str

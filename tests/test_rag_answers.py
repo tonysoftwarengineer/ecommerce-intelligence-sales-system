@@ -3,11 +3,17 @@ import json
 import httpx
 
 from api import rag_answer_service
-from api.rag_answer_service import GeminiRestAnswerProvider, UnavailableAnswerProvider
+from api.rag_answer_service import (
+    GeminiRestAnswerProvider,
+    GroqRestAnswerProvider,
+    UnavailableAnswerProvider,
+)
 from src.rag.answers import (
     AnswerProviderError,
     AnswerStatus,
+    AnswerTokenUsage,
     AnswerVerificationError,
+    ProviderGeneration,
     build_grounded_answer_prompt,
     generate_grounded_answer,
     verify_grounded_answer,
@@ -175,6 +181,22 @@ def test_missing_gemini_key_keeps_the_existing_unavailable_provider(monkeypatch)
     assert isinstance(rag_answer_service.build_answer_provider(), UnavailableAnswerProvider)
 
 
+def test_missing_groq_key_keeps_the_existing_unavailable_provider(monkeypatch) -> None:
+    monkeypatch.setattr(rag_answer_service, "GROQ_API_KEY", "")
+    monkeypatch.setattr(rag_answer_service, "RAG_ANSWER_PROVIDER", "groq")
+
+    assert isinstance(rag_answer_service.build_answer_provider(), UnavailableAnswerProvider)
+
+
+def test_configured_groq_key_selects_the_groq_adapter(monkeypatch) -> None:
+    monkeypatch.setattr(rag_answer_service, "GROQ_API_KEY", "test-key")
+    monkeypatch.setattr(rag_answer_service, "RAG_ANSWER_PROVIDER", "groq")
+
+    provider = rag_answer_service.build_answer_provider()
+
+    assert isinstance(provider, GroqRestAnswerProvider)
+
+
 def test_prompt_labels_embedded_instructions_as_untrusted_data() -> None:
     evidence = RetrievedEvidence(
         chunk_id="injection",
@@ -210,7 +232,14 @@ def test_gemini_adapter_sends_only_question_and_selected_evidence() -> None:
         }
         return httpx.Response(
             200,
-            json={"candidates": [{"content": {"parts": [{"text": json.dumps(generated)}]}}]},
+            json={
+                "candidates": [{"content": {"parts": [{"text": json.dumps(generated)}]}}],
+                "usageMetadata": {
+                    "promptTokenCount": 31,
+                    "candidatesTokenCount": 17,
+                    "totalTokenCount": 48,
+                },
+            },
         )
 
     provider = GeminiRestAnswerProvider(
@@ -224,9 +253,159 @@ def test_gemini_adapter_sends_only_question_and_selected_evidence() -> None:
 
     serialized = json.dumps(captured)
     user_payload = captured["contents"][0]["parts"][0]["text"].lower()
-    assert generated["claims"][0]["chunk_id"] == "chunk-shipping"
+    assert generated.payload["claims"][0]["chunk_id"] == "chunk-shipping"
+    assert generated.usage is not None
+    assert generated.usage.total_tokens == 48
+    assert captured["generationConfig"]["maxOutputTokens"] == 1024
     assert "How long is delivery?" in serialized
     assert "Standard delivery takes 2 to 4 business days." in serialized
     assert "forecast" not in user_payload
     assert "csv" not in user_payload
     assert "tools" not in captured
+
+
+def test_groq_adapter_sends_only_question_and_selected_evidence() -> None:
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        captured["authorization"] = request.headers["Authorization"]
+        captured["body"] = json.loads(request.content)
+        generated = {
+            "claims": [
+                {
+                    "claim": "Standard delivery takes two to four business days.",
+                    "chunk_id": "chunk-shipping",
+                    "supporting_quote": "Standard delivery takes 2 to 4 business days.",
+                }
+            ]
+        }
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": json.dumps(generated)}}],
+                "usage": {"prompt_tokens": 29, "completion_tokens": 19, "total_tokens": 48},
+            },
+        )
+
+    provider = GroqRestAnswerProvider(
+        api_key="test-key",
+        model="openai/gpt-oss-20b",
+        timeout_seconds=1,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    generated = provider.generate("How long is delivery?", (_evidence(),))
+
+    body = captured["body"]
+    serialized = json.dumps(body)
+    assert captured["url"] == "https://api.groq.com/openai/v1/chat/completions"
+    assert captured["authorization"] == "Bearer test-key"
+    assert generated.payload["claims"][0]["chunk_id"] == "chunk-shipping"
+    assert generated.usage is not None
+    assert generated.usage.input_tokens == 29
+    assert body["model"] == "openai/gpt-oss-20b"
+    assert body["temperature"] == 1e-8
+    assert body["max_completion_tokens"] == 1024
+    assert body["response_format"]["json_schema"]["strict"] is True
+    assert "How long is delivery?" in serialized
+    assert "Standard delivery takes 2 to 4 business days." in serialized
+    assert "forecast" not in body["messages"][1]["content"].lower()
+    assert "csv" not in body["messages"][1]["content"].lower()
+    assert "tools" not in body
+
+
+def test_malformed_provider_usage_does_not_break_a_valid_answer() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        generated = {
+            "claims": [
+                {
+                    "claim": "Standard delivery takes two to four business days.",
+                    "chunk_id": "chunk-shipping",
+                    "supporting_quote": "Standard delivery takes 2 to 4 business days.",
+                }
+            ]
+        }
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": json.dumps(generated)}}],
+                "usage": {"prompt_tokens": "unknown"},
+            },
+        )
+
+    provider = GroqRestAnswerProvider(
+        api_key="test-key",
+        model="openai/gpt-oss-20b",
+        timeout_seconds=1,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    result = generate_grounded_answer("How long is delivery?", _retrieval(), provider)
+
+    assert result.status == AnswerStatus.GROUNDED_ANSWER
+    assert result.usage is None
+
+
+def test_verification_rejection_retains_provider_usage_for_aggregate_metrics() -> None:
+    provider = _FakeProvider(
+        ProviderGeneration(
+            payload={
+                "claims": [
+                    {
+                        "claim": "Unsupported claim.",
+                        "chunk_id": "chunk-shipping",
+                        "supporting_quote": "Not an exact source quote.",
+                    }
+                ]
+            },
+            usage=AnswerTokenUsage(input_tokens=21, output_tokens=9, total_tokens=30),
+        )
+    )
+
+    result = generate_grounded_answer("How long is delivery?", _retrieval(), provider)
+
+    assert result.status == AnswerStatus.UNAVAILABLE
+    assert result.reason_codes == ("generated_answer_failed_verification",)
+    assert result.usage == AnswerTokenUsage(input_tokens=21, output_tokens=9, total_tokens=30)
+
+
+def test_groq_http_failures_keep_safe_diagnostic_reason_codes() -> None:
+    for status_code in (429, 503):
+
+        def handler(request: httpx.Request, status_code=status_code) -> httpx.Response:
+            return httpx.Response(status_code, json={"error": {"message": "unavailable"}})
+
+        provider = GroqRestAnswerProvider(
+            api_key="test-key",
+            model="openai/gpt-oss-20b",
+            timeout_seconds=1,
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+
+        result = generate_grounded_answer("How long is delivery?", _retrieval(), provider)
+
+        assert result.status == AnswerStatus.UNAVAILABLE
+        assert result.claims == ()
+        assert result.reason_codes == (
+            "answer_provider_unavailable",
+            f"groq_http_{status_code}",
+        )
+
+
+def test_groq_invalid_response_keeps_a_safe_diagnostic_reason_code() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"choices": [{"message": {"content": None}}]})
+
+    provider = GroqRestAnswerProvider(
+        api_key="test-key",
+        model="openai/gpt-oss-20b",
+        timeout_seconds=1,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    result = generate_grounded_answer("How long is delivery?", _retrieval(), provider)
+
+    assert result.status == AnswerStatus.UNAVAILABLE
+    assert result.claims == ()
+    assert result.reason_codes == ("answer_provider_unavailable", "groq_invalid_provider_response")
