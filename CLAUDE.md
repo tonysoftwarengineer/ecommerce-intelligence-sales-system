@@ -33,7 +33,7 @@ When updating, keep these headings and replace only the factual content beneath 
 
 ### Updater and date
 
-Claude Code — 2026-09-24 (also contains Codex's uncommitted 2026-09-23 RAG rerun notes)
+Codex — 2026-09-27 (RAG diagnostics repair; preserves Claude Code's commits)
 
 ### Completed phase
 
@@ -47,6 +47,39 @@ remote `origin`, branch `main`). The CI coverage gaps from the architecture revi
 proven on GitHub's runners: `.github/workflows/ci.yml` runs integration tests and the Playwright
 browser suite as their own jobs, and runs `pip-audit` / `npm audit` as report-only steps.
 
+A focused dependency security pass updated the frontend's transitive `nanoid` lockfile entry and
+recorded the remaining Python findings in the
+[dependency security triage](docs/evaluation/dependency_security_triage.md).
+
+The experimental Phase 2 answer layer now also supports an explicit Groq REST
+provider using `openai/gpt-oss-20b`. It uses the same retrieved-excerpt-only
+prompt boundary and deterministic exact-quote verifier as Gemini; no automatic
+fallback was added.
+
+RAG operational controls now cap generated answers at 1,024 tokens, limit each
+anonymous guest to six provider-backed answer requests per rolling minute, and
+expose privacy-safe process-local aggregate usage/latency metrics at
+`/api/v1/observability/rag-answer-metrics`. Unsupported questions consume no
+provider budget. There is no automatic retry, provider fallback, or retriever
+fallback.
+
+The two observability endpoints are now disabled by default and return `404`
+unless a local developer explicitly sets `DEVELOPMENT_OBSERVABILITY_ENABLED=true`.
+Claude Code's committed token guard also requires `DEVELOPMENT_OBSERVABILITY_TOKEN`
+and a matching Bearer token on requests. The ignored local `.env` now disables
+observability, so no token is needed for ordinary app startup or tests.
+Provider configuration failures do not consume a guest's answer allowance,
+verifier-rejected provider responses retain aggregate token usage, and stale
+answers are cleared before each new dashboard request.
+
+A fresh, paced Groq hard-development run was recorded separately on 2026-09-27.
+It did not run the locked set or tune any policy.
+
+The completed development-diagnostics repair now records actual provider payloads,
+verified claims, per-reference evidence availability, and separate pacing delays.
+It preserves scoring, release thresholds, retrieval, prompts, and production behavior.
+See the [offline diagnostics review](docs/evaluation/rag_phase2_diagnostics_review.md).
+
 ### Changed areas
 
 - The generic business workflow remains: CSV upload, explicit mapping, validation and quarantine,
@@ -54,8 +87,8 @@ browser suite as their own jobs, and runs `pip-audit` / `npm audit` as report-on
 - Product demand remains a seven-day, units-only planning preview. The DataCo audit investigated
   low coverage without changing its methods, eligibility rules, API, or dashboard trust gate.
 - RAG Phase 1 retrieval is frozen and independently usable. Phase 2 adds claim-level grounded
-  answers with exact support quotes and deterministic citation verification, but remains
-  experimental.
+  answers with exact support quotes and deterministic citation verification. Gemini and Groq are
+  explicit selectable providers, but Phase 2 remains experimental.
 - Deployment and portfolio documentation are committed. Use the linked reports for detailed
   findings rather than copying evidence into this snapshot.
 - CI (`.github/workflows/ci.yml`) now has four jobs: `backend` (lint, format check, mypy, unit
@@ -68,6 +101,13 @@ browser suite as their own jobs, and runs `pip-audit` / `npm audit` as report-on
   loosely typed JSON fixtures in tests, none in `src/`, `api/`, or `scripts/`; and
   `pythonpath = ["."]` was added to pytest config because bare `pytest` (the documented command)
   could not import `src`/`api`/`scripts` on CI.
+- `frontend/package-lock.json` now resolves `nanoid` 3.3.19 instead of 3.3.16; no application code,
+  backend requirement, or CI audit policy changed.
+- RAG evaluation unwraps `ProviderGeneration` only for private tracing and retains
+  verified claims separately. Diagnostics distinguish empty retrieval, missing
+  reference evidence, outages, verifier rejections, and answer/reference mismatches.
+  Supplemental provider-available coverage never replaces full-suite coverage.
+  The offline evaluator paces calls outside answer timing; warm-up is not established.
 
 ### Verification
 
@@ -86,6 +126,43 @@ browser suite as their own jobs, and runs `pip-audit` / `npm audit` as report-on
 - GitHub Actions run 35861101477 on commit e065f17: all four jobs passed (`backend`, `frontend`,
   `integration`, `e2e`). Locally, `ruff check .`, `ruff format --check .`, `mypy .` (97 source
   files), and bare `pytest -q -m "not integration"` (443 passed, 4 deselected) all pass.
+- For the dependency pass, exact `npm ci`, `npm audit --audit-level=high` (zero findings), frontend
+  TypeScript, lint, build, and all eight Playwright journeys passed locally. The fresh Python audit
+  still reported 57 findings in 14 packages; official PyPI resolver checks rejected the listed
+  fixed `python-multipart`, `python-dotenv`, and `pytest` versions on Python 3.9.
+- Groq adapter unit tests cover provider selection, missing keys, Bearer authentication, strict JSON
+  schema requests, limited provider payloads, HTTP 429/503 handling, and malformed responses. The
+  full non-integration suite, frontend checks, and eight isolated fake-provider browser journeys
+  passed during the implementation.
+- One Groq hard-development run preserved the locked split and returned seven verifier-approved
+  answers. It was inconclusive: eleven provider-unavailable cases (ten 429 responses and one 400)
+  left gold-claim coverage incomplete; one returned answer also missed an expected claim. The
+  public report now labels upstream availability as inconclusive/release-blocked rather than a
+  verifier-quality failure. Unsupported abstention, scope isolation, and the latency gate passed.
+  See the sanitized [Groq report](docs/evaluation/rag_phase2_groq_hard_development.md); its
+  detailed trace remains local-only.
+- The fresh paced Groq run returned 15 provider responses; every returned answer passed exact-quote
+  verification and unsupported abstention remained 100%, with no scope leakage or empty retrieval.
+  It remains inconclusive: three provider failures (`400` once, `429` twice) and 57.1% reference
+  coverage. Its recorded 5.96-second p95 includes pacing waits and cannot establish true warm
+  processing latency. The original report and scores are preserved. See the separate sanitized
+  [2026-09-27 Groq report](docs/evaluation/rag_phase2_groq_hard_development_2026-09-27.md); the
+  detailed trace is local-only.
+- RAG operational-control tests cover output caps, optional provider usage, six allowed
+  provider-backed requests followed by a local HTTP 429 and `Retry-After`, unsupported-question
+  budget preservation, privacy-safe aggregate metrics, and paced offline provider calls.
+- The operational-control edge-case repair passed focused backend tests (71), Ruff, frontend
+  type-check/lint/build, and all eight fake-provider Playwright journeys. No real provider or
+  locked evaluation was run.
+- The diagnostics repair passed `pytest -q -m "not integration"` (487 passed,
+  4 deselected), Ruff checks, format checks (239 files), and mypy (99 source files).
+  The run reports the existing Python 3.9 LibreSSL/urllib3 warning. It made no real
+  provider calls and ran no locked evaluation or browser suite.
+- Offline reconstruction resolved every selected chunk ID in the five incomplete
+  answered development cases: three lacked the required reference passage and two
+  had it. The old trace lacks generated claims for all five, so answer-level causes
+  remain unresolved. Full reference coverage stays 12/21 (57.1%); the supplemental
+  answered subset is 12/17 (70.6%), not a replacement release score.
 
 ### Current limitations
 
@@ -93,18 +170,20 @@ browser suite as their own jobs, and runs `pip-audit` / `npm audit` as report-on
   data-fit limitations; it did not relax or replace the trust gate.
 - A permissioned, anonymized export from one independent online retailer is still required for the
   intended-audience forecasting checkpoint.
-- RAG Phase 2 answers are experimental. Gemini quota/rate limits blocked real-provider development
-  scoring, and the untouched locked Phase 2 evaluation has not run. Do not spend further provider
-  quota on repeated hard-suite runs until availability is stable.
+- RAG Phase 2 answers are experimental. Gemini quota/rate limits and the first Groq development
+  run's 429/400 provider failures prevented conclusive scoring. The untouched locked Phase 2
+  evaluation has not run, and the Groq result is not evidence of reliable answer quality.
+- Literal reference matching is not semantic completeness or entailment. The old
+  private trace stored a wrapper placeholder instead of claims; its missing answers
+  and processing-only latency cannot be recovered. Fresh traces are needed before
+  blaming answer generation or choosing a retrieval change.
 - Sessions, uploads, document indexes, and analysis state are temporary and process-local; this is
   not a production multi-tenant deployment.
 - `mypy` does not check `tests/`; test behavior is enforced by pytest only.
-- The report-only dependency audits flag untriaged findings and do not block CI by design. In run
-  35861101477, `pip-audit` reported 57 known vulnerabilities in 14 packages, including direct pins
-  `chromadb`, `python-multipart` (parses the CSV/document uploads), `python-dotenv`, and `pytest`,
-  plus transitive `starlette`, `anyio`, `transformers`, `pillow`, `click`, and `orjson`. `npm audit`
-  reported one high-severity `nanoid` advisory (fix available via `npm audit fix`). Versions are
-  exact-pinned, so each bump needs its own test run.
+- The dependency audits remain report-only. The frontend lockfile now audits cleanly, but the
+  Python audit still reports 57 findings in 14 packages. Python 3.9 blocks the listed fixes for
+  `python-multipart`, `python-dotenv`, and `pytest`; API and RAG/ML transitive fixes need separate
+  compatibility work. See the triage record for every package and its reason.
 - The workflow still builds the frontend with Node 20 (`node-version: "20"` in `ci.yml`). Separately,
   GitHub warns that the JavaScript runtime of the actions themselves (`actions/checkout@v4`,
   `setup-node@v4`, `setup-python@v5`) is Node 20 and is being forced onto Node 24; that is the
@@ -114,14 +193,16 @@ browser suite as their own jobs, and runs `pip-audit` / `npm audit` as report-on
 
 ### Next recommended work
 
-1. Triage the audit findings, starting with `python-multipart` (upload parsing on a public API) and
-   `starlette`/`fastapi`; bump exact pins one at a time and rerun the full suite. Decide which of
-   the rest to fix now versus track.
+1. Treat the remaining API and RAG/ML dependency upgrades as a separate compatibility phase,
+   beginning with the Python runtime and FastAPI/Starlette constraints in the triage record.
 2. Consider bumping the GitHub Actions versions to clear the Node 20 deprecation warnings.
 3. Obtain and safely prepare a permissioned, anonymized independent-retailer export, then run the
    existing offline evaluator without changing forecast policy after seeing its results.
-4. When Gemini availability is stable, rerun the frozen hard-development RAG Phase 2 evaluation
-   three times. Run the untouched locked evaluation only if every documented development gate passes.
+4. Obtain approval for one fresh full paced development run using the repaired traces.
+   Inspect evidence-present reference mismatches and the bounded Groq `400` before
+   proposing retrieval or generation experiments. Keep the frozen baseline unchanged;
+   run stability evaluations only after a full run meets every development gate, and
+   the untouched locked evaluation only after that.
 5. Treat any cold-start forecasting improvement as a separate user-approved design and evaluation
    phase; do not loosen the live preview rules merely to increase coverage.
 
@@ -130,8 +211,9 @@ browser suite as their own jobs, and runs `pip-audit` / `npm audit` as report-on
 - Whether an appropriate independent-retailer export can be obtained and used for the pending
   forecasting checkpoint.
 - Whether to begin a separate cold-start product forecasting design phase before that checkpoint.
-- Whether to run the untouched RAG Phase 2 locked evaluation after Gemini availability and the
-  hard-development gates are satisfied.
+- Whether to run the untouched RAG Phase 2 locked evaluation after a provider passes every
+  hard-development gate.
+- Whether to authorize a fresh real-provider development run with repaired diagnostics.
 
 ## Detailed References
 
@@ -141,4 +223,8 @@ browser suite as their own jobs, and runs `pip-audit` / `npm audit` as report-on
 - [DataCo coverage diagnosis](docs/evaluation/dataco_coverage_audit.md)
 - [RAG Phase 1 locked retrieval evidence](docs/evaluation/rag_phase_1/chroma_locked_test.md)
 - [RAG Phase 2 hard-development report](docs/evaluation/rag_phase2_hard_development.md)
+- [RAG Phase 2 Groq hard-development report](docs/evaluation/rag_phase2_groq_hard_development.md)
+- [RAG Phase 2 Groq hard-development report — 2026-09-27](docs/evaluation/rag_phase2_groq_hard_development_2026-09-27.md)
+- [RAG Phase 2 offline diagnostics review](docs/evaluation/rag_phase2_diagnostics_review.md)
 - [RAG Phase 2 architecture decision](docs/architecture/ADR-015-experimental-grounded-document-answers.md)
+- [Dependency security triage](docs/evaluation/dependency_security_triage.md)

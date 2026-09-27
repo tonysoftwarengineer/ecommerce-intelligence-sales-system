@@ -1,14 +1,15 @@
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from src.rag.answers import (
     AnswerStatus,
     GroundedAnswerProvider,
+    ProviderGeneration,
     generate_grounded_answer,
 )
-from src.rag.contracts import RagDocumentType, RetrievedEvidence
+from src.rag.contracts import RagDocumentType, RetrievalStatus, RetrievedEvidence
 from src.rag.evaluation import EvaluationDocument, RagEvaluationCorpus
 from src.rag.retrieval import EvidenceRetrievalService
 
@@ -60,6 +61,14 @@ class AnswerEvaluationMetrics:
     provider_response_count: int
     verifier_rejection_count: int
     retrieval_miss_count: int
+    missing_reference_evidence_count: int
+    answer_reference_mismatch_count: int
+    gold_claim_count: int
+    matched_gold_claim_count: int
+    provider_available_gold_claim_count: int
+    provider_available_matched_gold_claim_count: int
+    provider_available_gold_claim_coverage: Optional[float]
+    pacing_delay_ms: float
     failures: tuple[dict[str, object], ...]
 
     def as_dict(self) -> dict[str, object]:
@@ -207,9 +216,18 @@ def evaluate_grounded_answers_with_trace(
     split: str,
     owner_scope_id: str = "answer-evaluation-owner",
     analysis_id: str = "answer-evaluation-analysis",
+    before_provider_call: Optional[Callable[[], float]] = None,
 ) -> tuple[AnswerEvaluationMetrics, AnswerEvaluationTrace]:
     metrics, trace = _evaluate_grounded_answers(
-        retrieval_corpus, answer_corpus, service, provider, split, owner_scope_id, analysis_id, True
+        retrieval_corpus,
+        answer_corpus,
+        service,
+        provider,
+        split,
+        owner_scope_id,
+        analysis_id,
+        True,
+        before_provider_call,
     )
     assert trace is not None
     return metrics, trace
@@ -226,8 +244,11 @@ class _TracingProvider:
         self.payload = None
 
     def generate(self, question: str, evidence: tuple[RetrievedEvidence, ...]) -> object:
-        self.payload = self._provider.generate(question, evidence)
-        return self.payload
+        generation = self._provider.generate(question, evidence)
+        self.payload = (
+            generation.payload if isinstance(generation, ProviderGeneration) else generation
+        )
+        return generation
 
 
 def _evaluate_grounded_answers(
@@ -239,6 +260,7 @@ def _evaluate_grounded_answers(
     owner_scope_id: str,
     analysis_id: str,
     capture_trace: bool,
+    before_provider_call: Optional[Callable[[], float]] = None,
 ) -> tuple[AnswerEvaluationMetrics, Optional[AnswerEvaluationTrace]]:
     service.clear()
     for document in retrieval_corpus.documents:
@@ -254,6 +276,11 @@ def _evaluate_grounded_answers(
     provider_unavailable_count = 0
     verifier_rejection_count = 0
     retrieval_miss_count = 0
+    missing_reference_evidence_count = 0
+    answer_reference_mismatch_count = 0
+    provider_available_gold = 0
+    provider_available_found = 0
+    total_pacing_ms = 0.0
     total_gold = sum(len(case.gold_claims) for case in supported)
     latencies = []
     failures: list[dict[str, object]] = []
@@ -265,6 +292,14 @@ def _evaluate_grounded_answers(
         retrieval = service.retrieve(owner_scope_id, analysis_id, case.question)
         if tracing_provider:
             tracing_provider.reset()
+        pacing_ms = 0.0
+        if (
+            before_provider_call
+            and retrieval.status == RetrievalStatus.EVIDENCE_AVAILABLE
+            and retrieval.evidence
+        ):
+            pacing_ms = round(before_provider_call() * 1000, 3)
+            total_pacing_ms += pacing_ms
         result = generate_grounded_answer(case.question, retrieval, active_provider)
         latencies.append(result.latency_ms)
         case_failures: list[str] = []
@@ -294,7 +329,23 @@ def _evaluate_grounded_answers(
         case_found = 0
         matched_gold: list[dict[str, str]] = []
         missing_gold: list[dict[str, str]] = []
+        reference_evidence: list[dict[str, object]] = []
+        missing_reference = False
         for gold in case.gold_claims:
+            reference_chunks = [
+                item.chunk_id
+                for item in retrieval.evidence
+                if item.document_id == gold.document_id
+                and gold.passage.lower() in item.excerpt.lower()
+            ]
+            reference_evidence.append(
+                {
+                    **asdict(gold),
+                    "evidence_available": bool(reference_chunks),
+                    "chunk_ids": reference_chunks,
+                }
+            )
+            missing_reference = missing_reference or not reference_chunks
             if any(
                 claim.chunk_id == evidence.chunk_id
                 and evidence.document_id == gold.document_id
@@ -307,6 +358,24 @@ def _evaluate_grounded_answers(
                 matched_gold.append(asdict(gold))
             else:
                 missing_gold.append(asdict(gold))
+        if missing_reference:
+            missing_reference_evidence_count += 1
+            case_failures.append("missing_reference_evidence")
+            failures.append({"case_id": case.case_id, "reason": "missing_reference_evidence"})
+        if result.status == AnswerStatus.GROUNDED_ANSWER and any(
+            item["evidence_available"]
+            and {"document_id": item["document_id"], "passage": item["passage"]} in missing_gold
+            for item in reference_evidence
+        ):
+            answer_reference_mismatch_count += 1
+            case_failures.append("answer_reference_mismatch")
+            failures.append({"case_id": case.case_id, "reason": "answer_reference_mismatch"})
+        if not case.should_abstain and (
+            result.status == AnswerStatus.GROUNDED_ANSWER
+            or "generated_answer_failed_verification" in result.reason_codes
+        ):
+            provider_available_gold += len(case.gold_claims)
+            provider_available_found += case_found
         if case_found != len(case.gold_claims):
             case_failures.append("missing_gold_claim")
             failures.append({"case_id": case.case_id, "reason": "missing_gold_claim"})
@@ -334,7 +403,11 @@ def _evaluate_grounded_answers(
                         "generated_payload": _safe_payload(
                             tracing_provider.payload if tracing_provider else None
                         ),
+                        "verified_claims": [asdict(claim) for claim in result.claims],
                     },
+                    "processing_latency_ms": result.latency_ms,
+                    "pacing_delay_ms": pacing_ms,
+                    "reference_evidence": reference_evidence,
                     "matched_gold_claims": matched_gold,
                     "missing_gold_claims": missing_gold,
                     "failure_reasons": case_failures,
@@ -361,6 +434,16 @@ def _evaluate_grounded_answers(
         provider_response_count=provider_responses,
         verifier_rejection_count=verifier_rejection_count,
         retrieval_miss_count=retrieval_miss_count,
+        missing_reference_evidence_count=missing_reference_evidence_count,
+        answer_reference_mismatch_count=answer_reference_mismatch_count,
+        gold_claim_count=total_gold,
+        matched_gold_claim_count=found_gold,
+        provider_available_gold_claim_count=provider_available_gold,
+        provider_available_matched_gold_claim_count=provider_available_found,
+        provider_available_gold_claim_coverage=_ratio_or_none(
+            provider_available_found, provider_available_gold
+        ),
+        pacing_delay_ms=round(total_pacing_ms, 3),
         failures=tuple(failures),
     )
     trace = AnswerEvaluationTrace(split=split, cases=tuple(traces)) if capture_trace else None
