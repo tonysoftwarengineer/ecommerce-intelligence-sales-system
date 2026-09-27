@@ -33,7 +33,7 @@ When updating, keep these headings and replace only the factual content beneath 
 
 ### Updater and date
 
-Codex — 2026-09-27 (RAG diagnostics repair; preserves Claude Code's commits)
+Codex — 2026-09-27 (fresh Groq development run and manual review completed)
 
 ### Completed phase
 
@@ -79,6 +79,11 @@ The completed development-diagnostics repair now records actual provider payload
 verified claims, per-reference evidence availability, and separate pacing delays.
 It preserves scoring, release thresholds, retrieval, prompts, and production behavior.
 See the [offline diagnostics review](docs/evaluation/rag_phase2_diagnostics_review.md).
+
+One fresh complete Groq hard-development run used the repaired diagnostics and
+30-second pacing. Its manual review is complete; no code or policy was changed.
+It remains inconclusive because of transport failures and an undiagnosed HTTP 400.
+See the [diagnostic rerun report](docs/evaluation/rag_phase2_groq_hard_development_diagnostics_rerun_2026-09-27.md).
 
 ### Changed areas
 
@@ -163,6 +168,17 @@ See the [offline diagnostics review](docs/evaluation/rag_phase2_diagnostics_revi
   had it. The old trace lacks generated claims for all five, so answer-level causes
   remain unresolved. Full reference coverage stays 12/21 (57.1%); the supplemental
   answered subset is 12/17 (70.6%), not a replacement release score.
+- The fresh diagnostic rerun completed all 20 development cases once: eight
+  verifier-approved answers, ten provider failures (nine `groq_request_failed`,
+  one HTTP 400), zero HTTP 429s, 100% unsupported abstention, and zero scope leakage.
+  Full reference coverage was 6/21 (28.6%); the provider-available subset was
+  6/8 (75%). Both returned answers marked incomplete had correct supporting quotes
+  from alternative approved documents. Current scores were preserved, not revised.
+- All eight generated payloads/verified claim sets were captured. Processing p95
+  was 5.144 seconds excluding 456.939 seconds of pacing; warm-up was not established.
+  All source/configuration/fixture hashes checked before and after the run matched.
+  The 37 focused evaluation/provider tests passed before the run. No automatic retry,
+  stability run, locked run, model switch, or retrieval/prompt change occurred.
 
 ### Current limitations
 
@@ -175,8 +191,14 @@ See the [offline diagnostics review](docs/evaluation/rag_phase2_diagnostics_revi
   evaluation has not run, and the Groq result is not evidence of reliable answer quality.
 - Literal reference matching is not semantic completeness or entailment. The old
   private trace stored a wrapper placeholder instead of claims; its missing answers
-  and processing-only latency cannot be recovered. Fresh traces are needed before
-  blaming answer generation or choosing a retrieval change.
+  and processing-only latency cannot be recovered. The new trace captured answers:
+  two scored misses were supported by alternative sources that the development
+  references do not accept. Do not infer model omissions from these two misses.
+- The fresh run's nine transport errors lack exception-subtype metadata, so their
+  root cause remains unknown. The user reported a network interruption, but it does
+  not establish every failure's cause. The HTTP 400 is also undiagnosed. No supported
+  multi-document case returned an answer in this attempt; their completeness and
+  full-suite provider quality remain unverified.
 - Sessions, uploads, document indexes, and analysis state are temporary and process-local; this is
   not a production multi-tenant deployment.
 - `mypy` does not check `tests/`; test behavior is enforced by pytest only.
@@ -198,11 +220,12 @@ See the [offline diagnostics review](docs/evaluation/rag_phase2_diagnostics_revi
 2. Consider bumping the GitHub Actions versions to clear the Node 20 deprecation warnings.
 3. Obtain and safely prepare a permissioned, anonymized independent-retailer export, then run the
    existing offline evaluator without changing forecast policy after seeing its results.
-4. Obtain approval for one fresh full paced development run using the repaired traces.
-   Inspect evidence-present reference mismatches and the bounded Groq `400` before
-   proposing retrieval or generation experiments. Keep the frozen baseline unchanged;
-   run stability evaluations only after a full run meets every development gate, and
-   the untouched locked evaluation only after that.
+4. Propose an offline development-reference audit of alternate passages supporting
+   the same fact, with explicit scope/exception checks. Keep current scores and locked
+   references unchanged; version any later scoring change separately. Investigate
+   transport reliability and the undiagnosed Groq `400` with bounded diagnostics before
+   another provider run. Do not switch models or add hybrid retrieval just to raise
+   coverage. Stability/locked runs remain blocked pending complete development evidence.
 5. Treat any cold-start forecasting improvement as a separate user-approved design and evaluation
    phase; do not loosen the live preview rules merely to increase coverage.
 
@@ -213,7 +236,8 @@ See the [offline diagnostics review](docs/evaluation/rag_phase2_diagnostics_revi
 - Whether to begin a separate cold-start product forecasting design phase before that checkpoint.
 - Whether to run the untouched RAG Phase 2 locked evaluation after a provider passes every
   hard-development gate.
-- Whether to authorize a fresh real-provider development run with repaired diagnostics.
+- Whether to approve the offline development-reference audit and separately scoped
+  transport/HTTP-error diagnostics before another real-provider run.
 
 ## Detailed References
 
@@ -226,5 +250,6 @@ See the [offline diagnostics review](docs/evaluation/rag_phase2_diagnostics_revi
 - [RAG Phase 2 Groq hard-development report](docs/evaluation/rag_phase2_groq_hard_development.md)
 - [RAG Phase 2 Groq hard-development report — 2026-09-27](docs/evaluation/rag_phase2_groq_hard_development_2026-09-27.md)
 - [RAG Phase 2 offline diagnostics review](docs/evaluation/rag_phase2_diagnostics_review.md)
+- [RAG Phase 2 fresh diagnostic rerun and manual review](docs/evaluation/rag_phase2_groq_hard_development_diagnostics_rerun_2026-09-27.md)
 - [RAG Phase 2 architecture decision](docs/architecture/ADR-015-experimental-grounded-document-answers.md)
 - [Dependency security triage](docs/evaluation/dependency_security_triage.md)
