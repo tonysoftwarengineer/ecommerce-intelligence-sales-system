@@ -33,7 +33,7 @@ When updating, keep these headings and replace only the factual content beneath 
 
 ### Updater and date
 
-Codex — 2026-09-27 (fresh Groq development run and manual review completed)
+Claude Code — 2026-09-27 (pushed all work to GitHub; CI green; retains Codex's Groq rerun review)
 
 ### Completed phase
 
@@ -128,9 +128,12 @@ See the [diagnostic rerun report](docs/evaluation/rag_phase2_groq_hard_developme
   `data/private/`; the locked test remains untouched.
 - For command-level verification and the latest test results, consult the relevant commit and
   evaluation report before claiming a check was rerun.
-- GitHub Actions run 35861101477 on commit e065f17: all four jobs passed (`backend`, `frontend`,
-  `integration`, `e2e`). Locally, `ruff check .`, `ruff format --check .`, `mypy .` (97 source
-  files), and bare `pytest -q -m "not integration"` (443 passed, 4 deselected) all pass.
+- GitHub Actions run 36324640711 on commit eba3658 (all work through the diagnostic rerun and
+  refreshed docs): all four jobs passed (`backend`, `frontend`, `integration`, `e2e`). Locally on
+  the same code, `ruff check .`, `ruff format --check .` (240 files), `mypy .` (99 source files),
+  and bare `pytest -q -m "not integration"` (487 passed, 4 deselected) pass. Commit 02d8b92 alone
+  fails 13 evaluation tests because it captured mid-edit test/script files; 3f5ba47 completes it.
+  History was deliberately left unrewritten.
 - For the dependency pass, exact `npm ci`, `npm audit --audit-level=high` (zero findings), frontend
   TypeScript, lint, build, and all eight Playwright journeys passed locally. The fresh Python audit
   still reported 57 findings in 14 packages; official PyPI resolver checks rejected the listed
