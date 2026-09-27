@@ -155,7 +155,7 @@ protected by host-scoped cookies.
 | `POST /api/v1/uploads/validate-data` | Validate mapped values and return quarantine requirements |
 | `POST /api/v1/uploads/transform` | Produce canonical sales data after required confirmation |
 | `POST /api/v1/uploads/analyze` | Transform, analyze, forecast, and create a dashboard session |
-| `GET /api/v1/observability/analysis-metrics` | Process-local, privacy-safe evaluation metrics for completed analyses |
+| `GET /api/v1/observability/analysis-metrics` | Aggregate evaluation metrics when enabled and called with the admin token; otherwise 404 |
 | `DELETE /api/v1/uploads/{upload_id}` | Immediately remove a temporary upload |
 | `GET /api/v1/analyses/{analysis_id}` | Restore a generic business analysis session |
 | `POST /api/v1/analyses/{analysis_id}/product-demand` | Opt-in, evidence-gated seven-day fulfilled-unit previews by product, with guarded category fallback |
@@ -167,6 +167,7 @@ protected by host-scoped cookies.
 | `DELETE /api/v1/analyses/{analysis_id}/rag/documents/{document_id}` | Remove one analysis-scoped RAG source |
 | `POST /api/v1/analyses/{analysis_id}/rag/retrieve` | Return up to three cited evidence excerpts or an honest abstention; no generated answer |
 | `POST /api/v1/analyses/{analysis_id}/rag/answer` | Return only verified, claim-level grounded answers or a bounded abstention/unavailable result |
+| `GET /api/v1/observability/rag-answer-metrics` | Aggregate grounded-answer metrics when enabled and called with the admin token; otherwise 404 |
 
 `/api/v1/segments` returns a summary by default. Pass `?include_customers=true` for the full per-customer rows — that response is ~12MB versus ~500 bytes, so it's opt-in.
 
@@ -214,7 +215,7 @@ claims; the analytics dashboard remains operational.
 
 The deterministic fake-provider development run validates the wiring,
 verification, abstention, isolation, and latency paths. It intentionally does
-not count as a Gemini quality evaluation and did not pass the gold-claim
+not count as a real-provider quality evaluation and did not pass the gold-claim
 coverage gate. The untouched locked Phase 2 run and manual failure review remain
 pending, so the feature stays labelled experimental. See
 [`ADR-015`](docs/architecture/ADR-015-experimental-grounded-document-answers.md)
@@ -230,6 +231,23 @@ The recorded real Gemini hard-development run had 18 provider-unavailable cases
 (`gemini_http_429`) and no supported-case provider responses. It is inconclusive
 about answer quality, and the feature remains experimental. See the
 [hard-development report](docs/evaluation/rag_phase2_hard_development.md).
+
+The first Groq hard-development run returned seven verified answers and passed
+unsupported-question abstention, isolation, and latency checks. It was still
+inconclusive: eleven supported cases were unavailable (ten `groq_http_429` and
+one `groq_http_400`), leaving 28.6% gold-claim coverage. No retrieval or answer
+policy was tuned after this run. See the separate
+[Groq hard-development report](docs/evaluation/rag_phase2_groq_hard_development.md).
+
+Two later Groq development runs on 2026-09-27 were also inconclusive. A paced
+run returned 15 answers with 57.1% reference coverage but three provider
+failures ([report](docs/evaluation/rag_phase2_groq_hard_development_2026-09-27.md)).
+A rerun with repaired diagnostics returned eight answers and ten provider
+failures (nine transport errors, one HTTP 400), with 28.6% full-suite coverage
+([report](docs/evaluation/rag_phase2_groq_hard_development_diagnostics_rerun_2026-09-27.md)).
+Every returned answer passed exact-quote verification, unsupported questions were
+always declined, and no document crossed a scope boundary. These are
+provider-availability results, not evidence of reliable answer quality.
 
 ```bash
 # Development-only: emits a private trace and a sanitized summary.
@@ -262,9 +280,11 @@ requires the business to confirm the meaning of its data before calculations:
 ## Configuration
 
 All settings have working local defaults — deploying should never require editing source.
-For local Gemini development only, copy `.env.example` to an ignored `.env` and
-provide `GEMINI_API_KEY`. Environment variables supplied by a deployment always
-override values from that local file.
+For local experimental grounded-answer development, copy `.env.example` to an
+ignored `.env` and provide the key for the explicitly selected provider.
+The example selects Groq with `openai/gpt-oss-20b`; Gemini remains selectable.
+Environment variables supplied by a deployment always override values from that
+local file.
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -282,9 +302,14 @@ override values from that local file.
 | `RAG_DOCUMENT_TTL_MINUTES` | `120` | Lifetime of temporary approved RAG sources |
 | `RAG_DOCUMENT_MAX_BYTES` | `2097152` | Maximum accepted RAG source size (2 MiB) |
 | `GEMINI_API_KEY` | empty | Server-only Gemini credential; answers are unavailable when absent |
-| `RAG_ANSWER_MODEL` | `gemini-3.8-flash` | Configurable Gemini model for experimental grounded answers |
+| `GROQ_API_KEY` | empty | Server-only Groq credential; required when `RAG_ANSWER_PROVIDER=groq` |
+| `RAG_ANSWER_MODEL` | `gemini-3.8-flash` | Model for the explicitly selected experimental answer provider |
 | `RAG_ANSWER_TIMEOUT_SECONDS` | `5.0` | Provider request timeout |
-| `RAG_ANSWER_PROVIDER` | `gemini` | Use `fake` only for deterministic CI/browser tests |
+| `RAG_ANSWER_PROVIDER` | `gemini` | `gemini`, `groq`, or `fake`; use `fake` only for deterministic CI/browser tests |
+| `RAG_ANSWER_MAX_OUTPUT_TOKENS` | `1024` | Hard maximum generated tokens for one grounded answer |
+| `RAG_ANSWER_RATE_LIMIT_PER_MINUTE` | `6` | Provider-backed answer attempts per anonymous guest per rolling minute |
+| `DEVELOPMENT_OBSERVABILITY_ENABLED` | `false` | Enable the two aggregate metrics endpoints; requires `DEVELOPMENT_OBSERVABILITY_TOKEN` or the API refuses to start |
+| `DEVELOPMENT_OBSERVABILITY_TOKEN` | empty | Shared admin secret; callers send `Authorization: Bearer <token>`. A missing or wrong token returns 404 |
 
 ## Tests
 

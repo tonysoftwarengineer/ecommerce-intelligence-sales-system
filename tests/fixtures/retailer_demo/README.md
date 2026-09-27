@@ -21,11 +21,11 @@ workflow; it does not validate forecast accuracy on a real retailer.
    For a real shop, these confirmations require business records; do not guess.
 5. Upload `shipping_policy.md` in the document panel, choose **Policy**, and
    select **Upload and index**. Ask: “How long does standard Lagos delivery take
-   after dispatch?” If Gemini is available, inspect the quote and citation. If
-   Gemini is unavailable, the sales dashboard remains usable. An unrelated
+   after dispatch?” If the selected answer provider is available, inspect the quote and citation. If
+   it is unavailable, the sales dashboard remains usable. An unrelated
    question should return insufficient evidence.
 
 The automated Chromium journey uses a deterministic fake answer provider. It
-checks the user flow and citation display, not real Gemini quality. The first
+checks the user flow and citation display, not real-provider quality. The first
 source is a single-SKU teaching fixture; the [retailer evaluation matrix](../../../docs/evaluation/online_retailer_evidence_matrix.md)
 tracks broader and independent evidence gaps.

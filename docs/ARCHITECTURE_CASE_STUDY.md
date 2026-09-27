@@ -229,7 +229,7 @@ accuracy number:
 | Process-local scorecard | Analysis latency, availability, forecast states, and internal fallback counts | Durable production observability |
 | Product-demand locked M5 holdout | 48 disjoint item-store series and 13 unseen weekly windows each; sparse stratum failed | Independent accuracy for small online retailers |
 | RAG Phase 1 locked test | Source ranking, passage retrieval, abstention, and scope isolation passed | Generated-answer quality |
-| RAG Phase 2 development tests | Verification, isolation, and provider failure handling | Locked Gemini answer quality; provider quota blocked the hard development run |
+| RAG Phase 2 development tests | Verification, isolation, and provider failure handling | Locked answer quality; the Gemini run and three Groq runs were inconclusive because provider failures blocked full scoring |
 
 The [retailer evaluation matrix](evaluation/online_retailer_evidence_matrix.md)
 maps common retailer scenarios to current tests and remaining evidence gaps.

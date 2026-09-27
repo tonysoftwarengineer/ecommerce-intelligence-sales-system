@@ -2,10 +2,11 @@ DIAGNOSTIC INTELLIGENCE ROADMAP
 Status: Milestones 1-10 and product-demand phases 11A through 11B-6 are
 complete. Two sparse safeguard candidates failed their predeclared gates; the
 live preview policy is unchanged. RAG Phase 1 retrieval passed its locked gate.
-RAG Phase 2 document answers are implemented but experimental; Gemini provider
-limits prevented conclusive hard-development scoring. Independent-business
-forecast evidence and the untouched Phase 2 answer evaluation remain pending.
-Last updated: 2026-09-21
+RAG Phase 2 document answers are implemented but experimental; the Gemini run
+and three Groq hard-development runs were inconclusive because provider failures
+prevented full scoring. Independent-business forecast evidence and the
+untouched Phase 2 answer evaluation remain pending.
+Last updated: 2026-09-27
 
 PURPOSE
 
