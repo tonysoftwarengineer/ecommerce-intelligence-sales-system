@@ -33,7 +33,7 @@ When updating, keep these headings and replace only the factual content beneath 
 
 ### Updater and date
 
-Claude Code — 2026-09-27 (pushed all work to GitHub; CI green; retains Codex's Groq rerun review)
+Claude Code — 2026-09-28 (Phase 1 pre-deploy hardening complete, pushed, CI green)
 
 ### Completed phase
 
@@ -85,6 +85,11 @@ One fresh complete Groq hard-development run used the repaired diagnostics and
 It remains inconclusive because of transport failures and an undiagnosed HTTP 400.
 See the [diagnostic rerun report](docs/evaluation/rag_phase2_groq_hard_development_diagnostics_rerun_2026-09-27.md).
 
+Phase 1 pre-deploy hardening is complete (commits 412f3c1, 99844a7): the API image runs as a
+non-root user with a health check, test/lint tooling is out of the production image, and CSV and
+RAG document uploads are rate-limited per anonymous guest. The remaining pre-deploy item is the
+Python runtime upgrade.
+
 ### Changed areas
 
 - The generic business workflow remains: CSV upload, explicit mapping, validation and quarantine,
@@ -113,6 +118,18 @@ See the [diagnostic rerun report](docs/evaluation/rag_phase2_groq_hard_developme
   reference evidence, outages, verifier rejections, and answer/reference mismatches.
   Supplemental provider-available coverage never replaces full-suite coverage.
   The offline evaluator paces calls outside answer timing; warm-up is not established.
+- `Dockerfile.api` creates an unprivileged `app` user, fixes `HF_HOME=/app/.cache/huggingface` so
+  the build-time model preload stays readable after `chown`, switches to that user, and adds a
+  stdlib-only `HEALTHCHECK` against `/api/v1/health` (the slim image has no curl/wget).
+- `requirements-dev.txt` (`-r requirements.txt` plus pytest, ruff, mypy) is the local/CI install;
+  `requirements.txt` is runtime-only and is all the image installs. `httpx` stays in runtime
+  because the Gemini/Groq providers use it. CI `backend`/`integration` install the dev file and
+  `pip-audit` scans it; `e2e` installs runtime only because it just boots uvicorn.
+- `UPLOAD_RATE_LIMIT_PER_MINUTE` (default 20) caps `POST /uploads/preview` and
+  `POST /analyses/{id}/rag/documents` per guest, sharing one budget, before any file is read;
+  excess returns 429 with `Retry-After`. It reuses the generic `RagAnswerRateLimiter` class and its
+  cleanup/shutdown wiring in `api/main.py`. Like the answer limiter, it keys on the guest cookie, so
+  a client that discards cookies gets a fresh budget; it is a portfolio control, not abuse defense.
 
 ### Verification
 
@@ -134,6 +151,11 @@ See the [diagnostic rerun report](docs/evaluation/rag_phase2_groq_hard_developme
   and bare `pytest -q -m "not integration"` (487 passed, 4 deselected) pass. Commit 02d8b92 alone
   fails 13 evaluation tests because it captured mid-edit test/script files; 3f5ba47 completes it.
   History was deliberately left unrewritten.
+- Phase 1 hardening: GitHub Actions run 36386997515 on 99844a7 passed all four jobs. Locally,
+  ruff, format (240 files), mypy (99 files), `pytest -q -m "not integration"` (489 passed,
+  4 deselected), and all eight Playwright journeys passed. The image was built and run locally
+  (OrbStack): the process ran as uid 999 `app`, Docker health settled to `healthy` after the
+  start period, and `/api/v1/health` returned 200. The image has not been deployed anywhere.
 - For the dependency pass, exact `npm ci`, `npm audit --audit-level=high` (zero findings), frontend
   TypeScript, lint, build, and all eight Playwright journeys passed locally. The fresh Python audit
   still reported 57 findings in 14 packages; official PyPI resolver checks rejected the listed
@@ -218,18 +240,22 @@ See the [diagnostic rerun report](docs/evaluation/rag_phase2_groq_hard_developme
 
 ### Next recommended work
 
-1. Treat the remaining API and RAG/ML dependency upgrades as a separate compatibility phase,
-   beginning with the Python runtime and FastAPI/Starlette constraints in the triage record.
-2. Consider bumping the GitHub Actions versions to clear the Node 20 deprecation warnings.
-3. Obtain and safely prepare a permissioned, anonymized independent-retailer export, then run the
+1. Python runtime upgrade (3.9 to 3.11 or 3.12) as its own phase with an ADR: update
+   `Dockerfile.api`, CI `python-version`, `pyproject.toml` targets, and exact pins together; then
+   clear the triage record's blocked fixes and re-run the frozen RAG Phase 1 retrieval benchmark
+   before and after, since the embedding stack may change. This is the last pre-deploy item.
+2. Then Phase 2: deploy a public demo with a one-click sample-retailer path and rewrite the README
+   (retire the Olist demo in two stages, per the user's delegated decision).
+3. Consider bumping the GitHub Actions versions to clear the Node 20 deprecation warnings.
+4. Obtain and safely prepare a permissioned, anonymized independent-retailer export, then run the
    existing offline evaluator without changing forecast policy after seeing its results.
-4. Propose an offline development-reference audit of alternate passages supporting
+5. Propose an offline development-reference audit of alternate passages supporting
    the same fact, with explicit scope/exception checks. Keep current scores and locked
    references unchanged; version any later scoring change separately. Investigate
    transport reliability and the undiagnosed Groq `400` with bounded diagnostics before
    another provider run. Do not switch models or add hybrid retrieval just to raise
    coverage. Stability/locked runs remain blocked pending complete development evidence.
-5. Treat any cold-start forecasting improvement as a separate user-approved design and evaluation
+6. Treat any cold-start forecasting improvement as a separate user-approved design and evaluation
    phase; do not loosen the live preview rules merely to increase coverage.
 
 ### Decisions requiring the user
