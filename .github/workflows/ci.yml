@@ -16,7 +16,7 @@ jobs:
           python-version: "3.9"
           cache: pip
 
-      - run: pip install -r requirements.txt
+      - run: pip install -r requirements-dev.txt
 
       - name: Lint
         run: ruff check .
@@ -37,7 +37,7 @@ jobs:
       # since this repo deliberately exact-pins dependencies and a fix may
       # need a coordinated version bump rather than an urgent block.
       - name: Dependency vulnerability scan
-        run: pip install pip-audit && pip-audit -r requirements.txt
+        run: pip install pip-audit && pip-audit -r requirements-dev.txt
         continue-on-error: true
 
   integration:
@@ -51,7 +51,7 @@ jobs:
           python-version: "3.9"
           cache: pip
 
-      - run: pip install -r requirements.txt
+      - run: pip install -r requirements-dev.txt
 
       # Builds the real Olist dataset via kagglehub's anonymous fetch
       # (~43MB download, no credentials needed).

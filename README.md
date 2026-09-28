@@ -104,8 +104,11 @@ approved document → chunk/index latest version → retrieve evidence → verif
 
 ```bash
 python3 -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt  # includes requirements.txt, plus pytest/ruff/mypy
 ```
+
+Use `pip install -r requirements.txt` alone only when reproducing the production
+image, which never installs test/lint tooling (see `Dockerfile.api`).
 
 No Kaggle credentials are needed — Olist is a public dataset and `kagglehub` fetches it anonymously on first run (~43MB). `data/` is gitignored and populated automatically.
 
@@ -295,6 +298,7 @@ local file.
 | `CORS_ORIGIN_REGEX` | any `localhost` port | Dev fallback, used only when `CORS_ORIGINS` is empty |
 | `UPLOAD_TTL_MINUTES` | `30` | Fixed lifetime for temporary business CSV uploads |
 | `UPLOAD_MAX_BYTES` | `10485760` | Maximum accepted CSV size in bytes (10 MiB) |
+| `UPLOAD_RATE_LIMIT_PER_MINUTE` | `20` | CSV and RAG document upload attempts per anonymous guest per rolling minute |
 | `ANALYSIS_TTL_MINUTES` | `120` | Lifetime of derived business-analysis sessions |
 | `GUEST_SESSION_TTL_MINUTES` | `120` | Lifetime of an anonymous isolated portfolio-demo session |
 | `GUEST_SESSION_COOKIE` | `ei_guest_session` | HttpOnly guest-session cookie name |

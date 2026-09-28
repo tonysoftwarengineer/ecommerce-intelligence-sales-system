@@ -1,0 +1,8 @@
+# Local development and CI only -- never installed into the production image.
+# See Dockerfile.api, which installs only requirements.txt.
+-r requirements.txt
+
+# --- Test + tooling ---
+pytest==8.4.2
+ruff==0.16.0           # lint + format
+mypy==1.19.1           # static type checking
