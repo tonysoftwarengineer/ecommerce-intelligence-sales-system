@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 
 import api.main as api_main
 import api.routes as routes
+from api.rag_answer_rate_limit import RagAnswerRateLimiter
 from api.rag_answer_service import UnavailableAnswerProvider
 from api.rag_service import retrieval_service as default_retrieval_service
 from api.routes import (
@@ -10,6 +11,7 @@ from api.routes import (
     document_store,
     rag_answer_observability,
     rag_answer_rate_limiter,
+    upload_rate_limiter,
     upload_store,
 )
 from src.rag.index import IndexUnavailableError, RetrievalIndex, TfidfRetrievalIndex
@@ -25,6 +27,7 @@ def clear_state(monkeypatch):
     default_retrieval_service.clear()
     rag_answer_observability.clear()
     rag_answer_rate_limiter.clear()
+    upload_rate_limiter.clear()
     api_main.guest_session_store.clear()
     yield
     upload_store.clear()
@@ -33,6 +36,7 @@ def clear_state(monkeypatch):
     default_retrieval_service.clear()
     rag_answer_observability.clear()
     rag_answer_rate_limiter.clear()
+    upload_rate_limiter.clear()
     api_main.guest_session_store.clear()
 
 
@@ -388,6 +392,30 @@ def test_no_document_invalid_question_and_index_unavailable_outcomes(monkeypatch
     )
     assert unavailable.json()["status"] == "unavailable"
     assert unavailable.json()["reason_codes"] == ["retrieval_index_unavailable"]
+
+
+def test_rag_document_upload_shares_the_upload_rate_limit_with_csv_preview(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(routes, "upload_rate_limiter", RagAnswerRateLimiter(limit=2))
+    client = TestClient(api_main.app)
+    analysis_id = _analysis(client)
+
+    first = _upload(client, analysis_id, "# Refunds\nAccepted for 14 days.", "refunds.md")
+    second = client.post(
+        "/api/v1/uploads/preview",
+        files={"file": ("sales.csv", "Invoice,Total\nA001,100", "text/csv")},
+    )
+    third = client.post(
+        f"/api/v1/analyses/{analysis_id}/rag/documents",
+        data={"document_type": "policy"},
+        files={"file": ("shipping.md", "# Shipping\nTwo days.", "text/markdown")},
+    )
+
+    assert first["filename"] == "refunds.md"
+    assert second.status_code == 200
+    assert third.status_code == 429
+    assert "Retry-After" in third.headers
 
 
 class _SearchUnavailableIndex(RetrievalIndex):

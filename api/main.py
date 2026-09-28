@@ -19,6 +19,7 @@ from api.routes import (
     rag_answer_rate_limiter,
     rag_transaction_lock,
     router,
+    upload_rate_limiter,
     upload_store,
 )
 from config import (
@@ -76,7 +77,9 @@ async def cleanup_expired_temporary_data() -> None:
         for session in expired_guest_sessions:
             removed_documents += delete_owner_rag_scopes(session.session_id)
             rag_answer_rate_limiter.drop_owner(session.session_id)
+            upload_rate_limiter.drop_owner(session.session_id)
         rag_answer_rate_limiter.cleanup_expired()
+        upload_rate_limiter.cleanup_expired()
         if removed_uploads or removed_analyses or removed_documents or removed_guest_sessions:
             logger.info(
                 "Removed %d uploads, %d analyses, %d documents, and %d guest sessions",
@@ -139,6 +142,7 @@ async def lifespan(app: FastAPI):
         retrieval_service.clear()
         rag_answer_observability.clear()
         rag_answer_rate_limiter.clear()
+        upload_rate_limiter.clear()
         guest_session_store.clear()
 
 

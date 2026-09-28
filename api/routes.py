@@ -79,6 +79,7 @@ from config import (
     RAG_DOCUMENT_MAX_BYTES,
     RAG_DOCUMENT_TTL_MINUTES,
     UPLOAD_MAX_BYTES,
+    UPLOAD_RATE_LIMIT_PER_MINUTE,
     UPLOAD_TTL_MINUTES,
 )
 from src.generic_sales.contracts import RevenueMode, SalesProcessingConfig
@@ -108,6 +109,9 @@ document_store = TemporaryDocumentStore(ttl=timedelta(minutes=RAG_DOCUMENT_TTL_M
 analysis_observability = AnalysisObservability()
 rag_answer_observability = RagAnswerObservability()
 rag_answer_rate_limiter = RagAnswerRateLimiter(RAG_ANSWER_RATE_LIMIT_PER_MINUTE)
+# Reuses the same generic sliding-window limiter as the RAG-answer budget
+# above; it isn't RAG-specific, just named for its first caller.
+upload_rate_limiter = RagAnswerRateLimiter(UPLOAD_RATE_LIMIT_PER_MINUTE)
 APPROVED_RAG_SUFFIXES = {".md", ".txt"}
 rag_transaction_lock = RLock()
 
@@ -149,6 +153,22 @@ def _owner_scope_id(request: Request) -> str:
     if not owner_scope_id:
         raise HTTPException(status_code=500, detail="Guest session was not initialized")
     return str(owner_scope_id)
+
+
+def _consume_upload_rate_limit(request: Request) -> str:
+    """Rate-limit a file-accepting upload endpoint; returns the caller's owner scope."""
+    owner_scope_id = _owner_scope_id(request)
+    decision = upload_rate_limiter.consume(owner_scope_id)
+    if not decision.allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                "Too many upload requests. Please try again in "
+                f"{decision.retry_after_seconds} seconds."
+            ),
+            headers={"Retry-After": str(decision.retry_after_seconds)},
+        )
+    return owner_scope_id
 
 
 def _get_temporary_upload(owner_scope_id: str, upload_id: str):
@@ -351,6 +371,7 @@ def segments(include_customers: bool = False):
 
 @router.post("/uploads/preview", response_model=CsvPreviewResponse)
 async def preview_upload(request: Request, file: UploadFile):
+    owner_scope_id = _consume_upload_rate_limit(request)
     filename = file.filename or ""
     if not filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Uploaded file must be a CSV")
@@ -373,7 +394,7 @@ async def preview_upload(request: Request, file: UploadFile):
 
     raw_df = pd.read_csv(BytesIO(contents), dtype=str, keep_default_na=False)
     upload = upload_store.create(
-        _owner_scope_id(request),
+        owner_scope_id,
         filename,
         contents,
         [str(column) for column in df.columns],
@@ -641,6 +662,7 @@ async def upload_rag_document(
     document_type: Annotated[RagDocumentType, Form()],
 ):
     """Atomically store, chunk and index one approved UTF-8 source."""
+    owner_scope_id = _consume_upload_rate_limit(request)
     filename = Path(file.filename or "").name
     if Path(filename).suffix.lower() not in APPROVED_RAG_SUFFIXES:
         raise HTTPException(
@@ -659,7 +681,6 @@ async def upload_rag_document(
     if not text.strip():
         raise HTTPException(status_code=400, detail="RAG source document contains no text")
 
-    owner_scope_id = _owner_scope_id(request)
     _get_analysis_session(owner_scope_id, analysis_id)
     with rag_transaction_lock:
         previous = tuple(

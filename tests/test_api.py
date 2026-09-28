@@ -5,11 +5,13 @@ from fastapi.testclient import TestClient
 
 import api.main as api_main
 import api.routes as routes
+from api.rag_answer_rate_limit import RagAnswerRateLimiter
 from api.routes import (
     analysis_observability,
     analysis_store,
     rag_answer_observability,
     rag_answer_rate_limiter,
+    upload_rate_limiter,
     upload_store,
 )
 from api.upload_store import UploadExpiredError
@@ -22,12 +24,14 @@ def clear_temporary_uploads():
     analysis_observability.clear()
     rag_answer_observability.clear()
     rag_answer_rate_limiter.clear()
+    upload_rate_limiter.clear()
     yield
     upload_store.clear()
     analysis_store.clear()
     analysis_observability.clear()
     rag_answer_observability.clear()
     rag_answer_rate_limiter.clear()
+    upload_rate_limiter.clear()
 
 
 def upload_csv(client: TestClient, csv: str) -> str:
@@ -260,6 +264,25 @@ def test_csv_preview_rejects_file_over_configured_size_limit():
 
     assert response.status_code == 413
     assert response.json()["detail"] == "Uploaded CSV exceeds the size limit"
+
+
+def test_csv_preview_rate_limit_returns_429_with_retry_after(monkeypatch):
+    monkeypatch.setattr(routes, "upload_rate_limiter", RagAnswerRateLimiter(limit=1))
+    client = TestClient(api_main.app)
+
+    first = client.post(
+        "/api/v1/uploads/preview",
+        files={"file": ("sales.csv", "Invoice,Total\nA001,100", "text/csv")},
+    )
+    second = client.post(
+        "/api/v1/uploads/preview",
+        files={"file": ("sales.csv", "Invoice,Total\nA002,200", "text/csv")},
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert "Retry-After" in second.headers
+    assert "Too many upload requests" in second.json()["detail"]
 
 
 def test_schema_mapping_accepts_required_fields_and_warns_about_unmapped_columns():

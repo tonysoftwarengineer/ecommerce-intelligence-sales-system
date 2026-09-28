@@ -38,6 +38,10 @@ CORS_ORIGIN_REGEX = os.environ.get("CORS_ORIGIN_REGEX", r"http://(localhost|127\
 # this fixed lifetime. Limits are configurable without editing application code.
 UPLOAD_TTL_MINUTES = int(os.environ.get("UPLOAD_TTL_MINUTES", "30"))
 UPLOAD_MAX_BYTES = int(os.environ.get("UPLOAD_MAX_BYTES", str(10 * 1024 * 1024)))
+# Caps CSV and RAG document upload attempts per anonymous guest, independent of
+# the RAG-answer provider budget above -- these cost local CPU/memory, not a
+# paid provider call, so the default is more generous.
+UPLOAD_RATE_LIMIT_PER_MINUTE = int(os.environ.get("UPLOAD_RATE_LIMIT_PER_MINUTE", "20"))
 
 # Derived analysis sessions contain no original upload bytes. They live longer
 # than uploads so a user can refresh the dashboard and download processed data.
@@ -97,6 +101,8 @@ if RAG_ANSWER_MAX_OUTPUT_TOKENS < 1:
     raise ValueError("RAG_ANSWER_MAX_OUTPUT_TOKENS must be positive")
 if RAG_ANSWER_RATE_LIMIT_PER_MINUTE < 1:
     raise ValueError("RAG_ANSWER_RATE_LIMIT_PER_MINUTE must be positive")
+if UPLOAD_RATE_LIMIT_PER_MINUTE < 1:
+    raise ValueError("UPLOAD_RATE_LIMIT_PER_MINUTE must be positive")
 validate_observability_settings(DEVELOPMENT_OBSERVABILITY_ENABLED, DEVELOPMENT_OBSERVABILITY_TOKEN)
 
 TABLE_FILES = {
