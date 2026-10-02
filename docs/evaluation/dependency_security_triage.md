@@ -37,3 +37,23 @@ The 14 Python packages above account for all **57 findings** in the fresh `pip-a
 - The Python audit was repeated with `pip-audit==2.9.0` from a temporary environment and still reported 57 findings in 14 packages.
 
 This result does not change forecast or RAG release status. Product demand remains preview-only, and RAG Phase 2 remains experimental.
+
+## Update 2026-09-28: Python 3.12 runtime
+
+The runtime moved from Python 3.9 to 3.12 ([ADR-016](../architecture/ADR-016-python-3-12-runtime-and-dependency-lock.md)).
+The three Python-3.9-blocked fixes above are now applied: `python-multipart`
+0.0.32, `python-dotenv` 1.2.3, and `pytest` 9.1.1. On 3.12 the transitive
+`pillow`, `torch`, `anyio`, `filelock`, `urllib3`, `requests`, `orjson`, and
+`click` findings also resolve to fixed releases. Those versions are now locked in
+`constraints.txt`, which CI's `pip-audit` step scans.
+
+| Stage | Known vulnerabilities |
+| --- | ---: |
+| Python 3.9, original pins | 57 in 14 packages |
+| Python 3.12, this change | 14 in 3 packages |
+
+Remaining: `starlette` (5), handled by the separate FastAPI/Starlette upgrade;
+`transformers` (5), which needs `transformers` 5 and therefore a newer
+`sentence-transformers`, an embedding-stack change that requires its own
+benchmarked phase; and `chromadb` (4), which has no fixed release. Counts come from
+`pip-audit==2.9.0 -r constraints.txt` on Python 3.12.13.

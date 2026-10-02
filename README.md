@@ -102,13 +102,18 @@ approved document → chunk/index latest version → retrieve evidence → verif
 
 ## Setup
 
+Requires Python 3.12.
+
 ```bash
-python3 -m venv venv && source venv/bin/activate
-pip install -r requirements-dev.txt  # includes requirements.txt, plus pytest/ruff/mypy
+python3.12 -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt -c constraints.txt  # requirements.txt plus pytest/ruff/mypy
 ```
 
-Use `pip install -r requirements.txt` alone only when reproducing the production
-image, which never installs test/lint tooling (see `Dockerfile.api`).
+`constraints.txt` locks every package, including transitive ones such as `torch`
+and `numpy`, to the versions the test suite passed with. Install without it and
+those libraries may resolve to newer, untested versions. Use
+`pip install -r requirements.txt -c constraints.txt` alone only when reproducing
+the production image, which never installs test/lint tooling (see `Dockerfile.api`).
 
 No Kaggle credentials are needed — Olist is a public dataset and `kagglehub` fetches it anonymously on first run (~43MB). `data/` is gitignored and populated automatically.
 

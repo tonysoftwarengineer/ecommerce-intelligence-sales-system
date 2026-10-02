@@ -1,5 +1,8 @@
 [tool.ruff]
 line-length = 100
+# The runtime is Python 3.12. This stays at py39 deliberately: raising it turns
+# on pyupgrade rewrites (e.g. Optional[X] -> X | None) across the codebase,
+# which belong in a separate, purely cosmetic commit. See ADR-016.
 target-version = "py39"
 
 [tool.ruff.lint]
@@ -16,7 +19,7 @@ select = [
 known-first-party = ["api", "config", "src"]
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.12"
 # pandas/sklearn/kagglehub ship no usable stubs; type-checking our own code is
 # the goal, not vendoring third-party type definitions.
 ignore_missing_imports = true

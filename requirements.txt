@@ -8,6 +8,10 @@
 
 # --- Core pipeline ---
 pandas==2.3.3
+# Pinned directly because pandas 2.3.3's Timedelta triggers NumPy 2.5's
+# deprecation of generic timedelta units, which NumPy says will become an
+# error. 2.4.x is clean. Revisit when pandas is upgraded.
+numpy==2.4.6
 kagglehub==0.3.13
 matplotlib==3.9.4
 openpyxl==3.1.5
@@ -21,9 +25,9 @@ sentence-transformers==5.1.2
 
 # --- API ---
 fastapi==0.128.8
-python-multipart==0.0.20
+python-multipart==0.0.32
 uvicorn[standard]==0.39.0
-python-dotenv==1.1.1     # Python 3.9-compatible local .env loading
+python-dotenv==1.2.3     # local .env loading
 httpx==0.28.1           # Gemini/Groq REST answer providers; also used by fastapi.testclient
 
 # Test and lint/type-check tooling live in requirements-dev.txt so the

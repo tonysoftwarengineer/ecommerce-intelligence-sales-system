@@ -3,6 +3,6 @@
 -r requirements.txt
 
 # --- Test + tooling ---
-pytest==8.4.2
+pytest==9.1.1
 ruff==0.16.0           # lint + format
 mypy==1.19.1           # static type checking

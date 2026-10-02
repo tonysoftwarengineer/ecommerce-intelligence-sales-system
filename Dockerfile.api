@@ -1,4 +1,4 @@
-FROM python:3.9-slim
+FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -7,22 +7,28 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY requirements.txt ./
-RUN python -m pip install --upgrade pip && \
-    python -m pip install -r requirements.txt
+# Create the unprivileged runtime user first so application files can be copied
+# in already owned by it. A later `chown -R` would duplicate every file into a
+# new image layer (about 700 MB here).
+RUN groupadd --system app && useradd --system --gid app --home /app app && \
+    chown app:app /app
 
-COPY . .
+COPY requirements.txt constraints.txt ./
+# The embedding model runs on CPU. PyPI's Linux torch wheel pulls in NVIDIA GPU
+# libraries (several GB); PyTorch's CPU index ships the same release without them.
+# The version comes from constraints.txt so it is defined in one place.
+RUN python -m pip install --upgrade pip && \
+    python -m pip install --index-url https://download.pytorch.org/whl/cpu \
+        "$(grep '^torch==' constraints.txt)" && \
+    python -m pip install -r requirements.txt -c constraints.txt
+
+COPY --chown=app:app . .
+USER app
 
 # Fail the image build, rather than the first user request, if the pinned model
-# cannot be downloaded. HF_HOME is fixed above so this cache lands somewhere
-# the runtime user (created below) can still read after the chown.
+# cannot be downloaded. It runs as the runtime user, so the HF_HOME cache is
+# already owned by the account that reads it.
 RUN python -m scripts.preload_rag_model
-
-# Run as an unprivileged user. The cache and app directory are owned by root
-# until this point because the preload step above needs to write into them.
-RUN groupadd --system app && useradd --system --gid app --home /app app && \
-    chown -R app:app /app
-USER app
 
 EXPOSE 8000
 
