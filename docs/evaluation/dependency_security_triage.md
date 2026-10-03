@@ -57,3 +57,20 @@ Remaining: `starlette` (5), handled by the separate FastAPI/Starlette upgrade;
 `sentence-transformers`, an embedding-stack change that requires its own
 benchmarked phase; and `chromadb` (4), which has no fixed release. Counts come from
 `pip-audit==2.9.0 -r constraints.txt` on Python 3.12.13.
+
+### API stack follow-up
+
+`fastapi` 0.141.1, `uvicorn` 0.54.0, and `starlette` 1.7.0 (pinned directly,
+because `fastapi` accepts `starlette>=0.46` and pip would otherwise keep 0.52.1)
+cleared all five `starlette` findings. The same audit then reported two
+advisories that were not in earlier runs, against versions this change did not
+touch: `PYSEC-2026-4164` (`sentence-transformers` 5.1.2, fixed in 5.6.0) and
+`PYSEC-2026-4174` (`transformers` 4.57.6).
+
+| Stage | Known vulnerabilities |
+| --- | ---: |
+| Python 3.12 runtime | 14 in 3 packages |
+| Plus API stack upgrade | 11 in 3 packages (`transformers` 6, `chromadb` 4, `sentence-transformers` 1) |
+
+All remaining findings sit in the embedding/index stack, which needs its own
+benchmarked upgrade phase. `chromadb` still has no fixed release.

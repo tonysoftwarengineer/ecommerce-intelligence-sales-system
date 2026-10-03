@@ -100,7 +100,28 @@ exchange for reproducible installs.
       inside the Linux image.
 - [x] CPU-only `torch` and a lean image (2.62 GB), run locally as uid 999 and
       reporting `healthy`.
-- [ ] FastAPI/Starlette upgrade as a separate commit.
+- [x] FastAPI/Starlette upgrade as a separate commit: `fastapi` 0.141.1, `uvicorn`
+      0.54.0, and `starlette` pinned directly to 1.7.0 (fastapi accepts
+      `starlette>=0.46`, so pip would otherwise keep the installed 0.52.1). All 5
+      `starlette` findings cleared. The audit then reported 11 findings in 3 packages,
+      not the expected 9: two advisories newly reported against unchanged versions,
+      `PYSEC-2026-4164` (`sentence-transformers` 5.1.2, fixed in 5.6.0) and
+      `PYSEC-2026-4174` (`transformers` 4.57.6), both in the deferred embedding stack.
+- [ ] Starlette 1.7 warns that its test client will require `httpx2` instead of
+      `httpx`. Test-only; adding that dependency needs the owner's approval.
+- [x] Image rebuilt with the upgraded API stack (2.62 GB; Python 3.12.15, fastapi
+      0.141.1, starlette 1.7.0, uvicorn 0.54.0, torch 2.14.0+cpu), running as uid
+      999 and reaching `healthy`. The retrieval benchmark was not rerun for this
+      commit: the lock changed only `fastapi`, `starlette`, and `uvicorn`, none of
+      which the retrieval path uses.
+- [x] The pip install step uses a BuildKit cache mount, so a pin change
+      re-downloads only the changed packages. The cache is not part of the image.
+- [ ] Startup downloads the 43 MB Olist demo dataset from Kaggle before the API
+      accepts connections (`data/` is excluded from the image). On a slow
+      connection startup took 463 s, so the container reported `unhealthy` during
+      the health check's grace window before recovering. A deployed demo would
+      repeat this on every restart; removing the download is part of the planned
+      Olist retirement.
 - [ ] Decide whether to regenerate the stale Phase 1 development reports.
 - [ ] Later: embedding-stack upgrade (`sentence-transformers`/`transformers`) as its
       own benchmarked phase; raise the ruff target in a cosmetic commit.

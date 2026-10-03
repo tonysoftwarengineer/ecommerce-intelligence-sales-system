@@ -24,9 +24,12 @@ chromadb==1.5.9
 sentence-transformers==5.1.2
 
 # --- API ---
-fastapi==0.128.8
+fastapi==0.141.1
+# Pinned directly: fastapi accepts starlette>=0.46, so pip would otherwise keep
+# an older installed 0.x release; the pip-audit fixes require starlette 1.x.
+starlette==1.7.0
 python-multipart==0.0.32
-uvicorn[standard]==0.39.0
+uvicorn[standard]==0.54.0
 python-dotenv==1.2.3     # local .env loading
 httpx==0.28.1           # Gemini/Groq REST answer providers; also used by fastapi.testclient
 
