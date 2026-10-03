@@ -44,8 +44,8 @@ was the DataCo public-data product-forecast coverage diagnosis.
 
 The repository is now on GitHub (public: `tonysoftwarengineer/ecommerce-intelligence-sales-system`,
 remote `origin`, branch `main`). The CI coverage gaps from the architecture review are closed and
-proven on GitHub's runners: `.github/workflows/ci.yml` runs integration tests and the Playwright
-browser suite as their own jobs, and runs `pip-audit` / `npm audit` as report-only steps.
+proven on GitHub's runners: `.github/workflows/ci.yml` runs the Playwright browser suite and a
+production-image build as their own jobs, and runs `pip-audit` / `npm audit` as report-only steps.
 
 A focused dependency security pass updated the frontend's transitive `nanoid` lockfile entry and
 recorded the remaining Python findings in the
@@ -138,8 +138,8 @@ remain for Stage B.
   stdlib-only `HEALTHCHECK` against `/api/v1/health` (the slim image has no curl/wget).
 - `requirements-dev.txt` (`-r requirements.txt` plus pytest, ruff, mypy) is the local/CI install;
   `requirements.txt` is runtime-only and is all the image installs. `httpx` stays in runtime
-  because the Gemini/Groq providers use it. CI `backend`/`integration` install the dev file and
-  `pip-audit` scans it; `e2e` installs runtime only because it just boots uvicorn.
+  because the Gemini/Groq providers use it. CI `backend` installs the dev file and `pip-audit`
+  scans `constraints.txt`; `e2e` installs runtime only because it just boots uvicorn.
 - `UPLOAD_RATE_LIMIT_PER_MINUTE` (default 20) caps `POST /uploads/preview` and
   `POST /analyses/{id}/rag/documents` per guest, sharing one budget, before any file is read;
   excess returns 429 with `Retry-After`. It reuses the generic `RagAnswerRateLimiter` class and its
