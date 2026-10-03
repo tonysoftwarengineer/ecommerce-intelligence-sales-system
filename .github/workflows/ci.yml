@@ -133,3 +133,42 @@ jobs:
       - name: Browser journey
         run: npm run test:e2e
         working-directory: frontend
+
+  # Builds the production image exactly as Dockerfile.api defines it and checks
+  # that it actually starts. Without this, a broken Dockerfile would only be
+  # discovered at deploy time.
+  docker:
+    needs: backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -f Dockerfile.api -t ei-api:ci .
+
+      - name: Start container
+        run: |
+          docker run -d --name ei-api -p 8000:8000 \
+            -e RAG_RETRIEVAL_BACKEND=tfidf -e RAG_ANSWER_PROVIDER=fake ei-api:ci
+
+      # Startup currently downloads the Olist demo dataset before serving, so
+      # allow up to five minutes before treating the image as broken.
+      - name: Wait for the health endpoint
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8000/api/v1/health; then
+              echo; echo "healthy after attempt $attempt"; exit 0
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' ei-api)" != "true" ]; then
+              echo "container exited"; docker logs ei-api; exit 1
+            fi
+            sleep 5
+          done
+          echo "health endpoint never answered"; docker logs ei-api; exit 1
+
+      - name: Confirm the process does not run as root
+        run: test "$(docker exec ei-api id -u)" != "0"
+
+      - name: Container logs
+        if: always()
+        run: docker logs ei-api || true
