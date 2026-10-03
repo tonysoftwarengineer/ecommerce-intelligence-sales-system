@@ -12,6 +12,7 @@ from typing import Annotated, Optional
 import pandas as pd
 from fastapi import APIRouter, Form, HTTPException, Request, Response, UploadFile
 from pandas.errors import EmptyDataError, ParserError
+from starlette.concurrency import run_in_threadpool
 
 from api.analysis_observability import AnalysisObservability
 from api.analysis_store import (
@@ -374,6 +375,11 @@ async def preview_upload(request: Request, file: UploadFile):
             detail="This CSV is too large. Export a smaller file and try again.",
         )
 
+    # Parsing is CPU-bound; on the event loop it would stall every other request.
+    return await run_in_threadpool(_store_csv_preview, owner_scope_id, filename, contents)
+
+
+def _store_csv_preview(owner_scope_id: str, filename: str, contents: bytes) -> dict:
     try:
         df = pd.read_csv(BytesIO(contents))
     except EmptyDataError as exc:
@@ -688,6 +694,20 @@ async def upload_rag_document(
             status_code=400, detail="This document has no readable text. Choose another file."
         )
 
+    # Embedding and indexing are CPU-bound. The whole locked block runs in one worker
+    # thread because rag_transaction_lock is a thread-owned RLock.
+    return await run_in_threadpool(
+        _store_and_index_rag_document, owner_scope_id, analysis_id, filename, document_type, text
+    )
+
+
+def _store_and_index_rag_document(
+    owner_scope_id: str,
+    analysis_id: str,
+    filename: str,
+    document_type: RagDocumentType,
+    text: str,
+) -> dict:
     _get_analysis_session(owner_scope_id, analysis_id)
     with rag_transaction_lock:
         previous = tuple(
