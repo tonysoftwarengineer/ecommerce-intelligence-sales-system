@@ -20,9 +20,16 @@ class RagAnswerObservability:
         self._lock = RLock()
         self.clear()
 
-    def record_result(self, result: GroundedAnswerResult, provider_attempted: bool) -> None:
+    def record_result(
+        self,
+        result: GroundedAnswerResult,
+        provider_attempted: bool,
+        cache_hit: bool = False,
+    ) -> None:
         with self._lock:
             self._answer_requests += 1
+            if cache_hit:
+                self._cache_hits += 1
             self._status_counts[result.status.value] += 1
             self._provider_model_counts[_provider_model_key(result.provider, result.model)] += 1
             self._reason_code_counts.update(result.reason_codes)
@@ -55,6 +62,7 @@ class RagAnswerObservability:
                 "answer_requests": self._answer_requests,
                 "provider_backed_attempts": self._provider_backed_attempts,
                 "rate_limited_requests": self._rate_limited_requests,
+                "cache_hits": self._cache_hits,
                 "usage_unavailable_count": self._usage_unavailable_count,
                 "latency_ms": _latency_summary(self._latencies),
                 "input_tokens": _latency_summary(self._input_tokens),
@@ -70,6 +78,7 @@ class RagAnswerObservability:
             self._answer_requests = 0
             self._provider_backed_attempts = 0
             self._rate_limited_requests = 0
+            self._cache_hits = 0
             self._usage_unavailable_count = 0
             self._latencies: list[float] = []
             self._input_tokens: list[float] = []

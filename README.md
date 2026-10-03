@@ -315,6 +315,7 @@ local file.
 | `RAG_ANSWER_PROVIDER` | `gemini` | `gemini`, `groq`, or `fake`; use `fake` only for deterministic CI/browser tests |
 | `RAG_ANSWER_MAX_OUTPUT_TOKENS` | `1024` | Hard maximum generated tokens for one grounded answer |
 | `RAG_ANSWER_RATE_LIMIT_PER_MINUTE` | `6` | Provider-backed answer attempts per anonymous guest per rolling minute |
+| `RAG_ANSWER_DAILY_BUDGET` | `100` | Provider-backed answers per UTC day across all visitors; repeated identical questions are served from a cache and do not count |
 | `DEVELOPMENT_OBSERVABILITY_ENABLED` | `false` | Enable the two aggregate metrics endpoints; requires `DEVELOPMENT_OBSERVABILITY_TOKEN` or the API refuses to start |
 | `DEVELOPMENT_OBSERVABILITY_TOKEN` | empty | Shared admin secret; callers send `Authorization: Bearer <token>`. A missing or wrong token returns 404 |
 

@@ -3,12 +3,14 @@ from fastapi.testclient import TestClient
 
 import api.main as api_main
 import api.routes as routes
-from api.rag_answer_rate_limit import RagAnswerRateLimiter
+from api.rag_answer_rate_limit import RagAnswerDailyBudget, RagAnswerRateLimiter
 from api.rag_answer_service import UnavailableAnswerProvider
 from api.rag_service import retrieval_service as default_retrieval_service
 from api.routes import (
     analysis_store,
     document_store,
+    rag_answer_cache,
+    rag_answer_daily_budget,
     rag_answer_observability,
     rag_answer_rate_limiter,
     upload_rate_limiter,
@@ -27,6 +29,8 @@ def clear_state(monkeypatch):
     default_retrieval_service.clear()
     rag_answer_observability.clear()
     rag_answer_rate_limiter.clear()
+    rag_answer_cache.clear()
+    rag_answer_daily_budget.clear()
     upload_rate_limiter.clear()
     api_main.guest_session_store.clear()
     yield
@@ -36,6 +40,8 @@ def clear_state(monkeypatch):
     default_retrieval_service.clear()
     rag_answer_observability.clear()
     rag_answer_rate_limiter.clear()
+    rag_answer_cache.clear()
+    rag_answer_daily_budget.clear()
     upload_rate_limiter.clear()
     api_main.guest_session_store.clear()
 
@@ -300,16 +306,18 @@ def test_answer_rate_limit_preserves_unsupported_abstention_and_exposes_safe_met
         f"/api/v1/analyses/{analysis_id}/rag/answer",
         json={"question": "Which television advertisement caused profit to increase?"},
     )
+    # Distinct wording per request: identical questions are served from the answer cache
+    # and never reach the provider or the rate limit.
     supported = [
         client.post(
             f"/api/v1/analyses/{analysis_id}/rag/answer",
-            json={"question": "How long does standard Lagos delivery take?"},
+            json={"question": f"How long does standard Lagos delivery take (request {n})?"},
         )
-        for _ in range(6)
+        for n in "abcdef"
     ]
     limited = client.post(
         f"/api/v1/analyses/{analysis_id}/rag/answer",
-        json={"question": "How long does standard Lagos delivery take?"},
+        json={"question": "How long does standard Lagos delivery take (request g)?"},
     )
     metrics = client.get(
         "/api/v1/observability/rag-answer-metrics",
@@ -337,7 +345,7 @@ def test_answer_rate_limit_preserves_unsupported_abstention_and_exposes_safe_met
         "rate_limited": 1,
     }
     assert "private-policy.md" not in str(body)
-    assert "How long does standard Lagos delivery take?" not in str(body)
+    assert "How long does standard Lagos delivery take" not in str(body)
 
 
 def test_unconfigured_provider_does_not_consume_answer_allowance(monkeypatch) -> None:
@@ -416,6 +424,118 @@ def test_rag_document_upload_shares_the_upload_rate_limit_with_csv_preview(
     assert second.status_code == 200
     assert third.status_code == 429
     assert "Retry-After" in third.headers
+
+
+def _delivery_analysis(client: TestClient) -> str:
+    analysis_id = _analysis(client)
+    _upload(
+        client,
+        analysis_id,
+        "# Delivery\nStandard Lagos delivery takes 2 to 4 business days.",
+        "shipping.md",
+    )
+    return analysis_id
+
+
+def _ask(client: TestClient, analysis_id: str, question: str):
+    return client.post(f"/api/v1/analyses/{analysis_id}/rag/answer", json={"question": question})
+
+
+def test_repeated_question_is_answered_from_cache_without_calling_the_provider(
+    monkeypatch,
+) -> None:
+    provider = _ExactQuoteProvider()
+    monkeypatch.setattr(routes, "answer_provider", provider)
+    client = TestClient(api_main.app)
+    analysis_id = _delivery_analysis(client)
+
+    first = _ask(client, analysis_id, "How long does standard Lagos delivery take?")
+    second = _ask(client, analysis_id, "How long does standard Lagos delivery take?")
+
+    assert first.json()["status"] == "grounded_answer"
+    assert second.json()["status"] == "grounded_answer"
+    assert second.json()["claims"] == first.json()["claims"]
+    assert provider.call_count == 1
+    assert rag_answer_daily_budget.remaining() == routes.RAG_ANSWER_DAILY_BUDGET - 1
+
+
+def test_cache_is_shared_across_guests_only_for_identical_evidence(monkeypatch) -> None:
+    provider = _ExactQuoteProvider()
+    monkeypatch.setattr(routes, "answer_provider", provider)
+    question = "How long does standard Lagos delivery take?"
+
+    first_guest = TestClient(api_main.app)
+    _ask(first_guest, _delivery_analysis(first_guest), question)
+    second_guest = TestClient(api_main.app)
+    second = _ask(second_guest, _delivery_analysis(second_guest), question)
+
+    assert second.json()["status"] == "grounded_answer"
+    assert provider.call_count == 1
+
+    third_guest = TestClient(api_main.app)
+    analysis_id = _analysis(third_guest)
+    _upload(
+        third_guest,
+        analysis_id,
+        "# Delivery\nStandard Lagos delivery takes 2 to 4 business days. Express is next day.",
+        "shipping.md",
+    )
+    _ask(third_guest, analysis_id, question)
+
+    assert provider.call_count == 2
+
+
+def test_unverified_answers_are_never_cached(monkeypatch) -> None:
+    invalid = _InvalidProvider()
+    monkeypatch.setattr(routes, "answer_provider", invalid)
+    client = TestClient(api_main.app)
+    analysis_id = _delivery_analysis(client)
+
+    for _ in range(2):
+        response = _ask(client, analysis_id, "How long does standard Lagos delivery take?")
+        assert response.json()["reason_codes"] == ["generated_answer_failed_verification"]
+
+    assert invalid.call_count == 2
+    assert len(rag_answer_cache) == 0
+
+
+def test_tampered_cached_answer_is_rejected_by_the_verifier(monkeypatch) -> None:
+    provider = _ExactQuoteProvider()
+    monkeypatch.setattr(routes, "answer_provider", provider)
+    client = TestClient(api_main.app)
+    analysis_id = _delivery_analysis(client)
+    question = "How long does standard Lagos delivery take?"
+    _ask(client, analysis_id, question)
+
+    ((key, (stored_at, payload)),) = rag_answer_cache._entries.items()
+    payload["claims"][0]["supporting_quote"] = "Delivery is free for everyone."
+    rag_answer_cache._entries[key] = (stored_at, payload)
+    tampered = _ask(client, analysis_id, question)
+
+    assert tampered.json()["status"] == "unavailable"
+    assert tampered.json()["reason_codes"] == ["generated_answer_failed_verification"]
+    assert provider.call_count == 1
+
+
+def test_daily_budget_exhaustion_is_honest_and_skips_the_provider(monkeypatch) -> None:
+    provider = _ExactQuoteProvider()
+    monkeypatch.setattr(routes, "answer_provider", provider)
+    monkeypatch.setattr(routes, "rag_answer_daily_budget", RagAnswerDailyBudget(limit=1))
+    client = TestClient(api_main.app)
+    analysis_id = _delivery_analysis(client)
+
+    allowed = _ask(client, analysis_id, "How long does standard Lagos delivery take?")
+    exhausted = _ask(client, analysis_id, "How many days does standard Lagos delivery take?")
+    cached = _ask(client, analysis_id, "How long does standard Lagos delivery take?")
+
+    assert allowed.json()["status"] == "grounded_answer"
+    assert exhausted.status_code == 200
+    assert exhausted.json()["status"] == "unavailable"
+    assert "daily_answer_budget_exhausted" in exhausted.json()["reason_codes"]
+    assert exhausted.json()["claims"] == []
+    assert exhausted.json()["evidence"]
+    assert cached.json()["status"] == "grounded_answer"
+    assert provider.call_count == 1
 
 
 class _SearchUnavailableIndex(RetrievalIndex):

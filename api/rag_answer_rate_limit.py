@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 from collections import deque
 from dataclasses import dataclass
+from datetime import date, datetime, timezone
 from math import ceil
 from threading import RLock
 from typing import Callable
@@ -70,3 +71,45 @@ class RagAnswerRateLimiter:
     def _purge(self, attempts: deque[float], now: float) -> None:
         while attempts and now - attempts[0] >= self._window_seconds:
             attempts.popleft()
+
+
+class RagAnswerDailyBudget:
+    """Cap provider-backed answers across all guests per UTC day.
+
+    The per-guest limiter is keyed on a cookie, so a client that discards cookies
+    gets a fresh allowance. This budget is app-wide, so the provider quota cannot
+    be drained that way. It is process-local and resets on restart.
+    """
+
+    def __init__(self, limit: int, clock: Callable[[], datetime] | None = None) -> None:
+        if limit < 1:
+            raise ValueError("limit must be at least one")
+        self._limit = limit
+        self._clock = clock or (lambda: datetime.now(timezone.utc))
+        self._lock = RLock()
+        self._day: date | None = None
+        self._used = 0
+
+    def remaining(self) -> int:
+        with self._lock:
+            self._roll_over()
+            return self._limit - self._used
+
+    def consume(self) -> bool:
+        with self._lock:
+            self._roll_over()
+            if self._used >= self._limit:
+                return False
+            self._used += 1
+            return True
+
+    def clear(self) -> None:
+        with self._lock:
+            self._day = None
+            self._used = 0
+
+    def _roll_over(self) -> None:
+        today = self._clock().astimezone(timezone.utc).date()
+        if today != self._day:
+            self._day = today
+            self._used = 0

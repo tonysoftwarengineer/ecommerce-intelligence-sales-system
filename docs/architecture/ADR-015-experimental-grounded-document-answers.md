@@ -27,6 +27,14 @@ The portfolio demo has anonymous guests rather than user accounts and durable te
   first, so insufficient-evidence questions consume no provider budget. A local limit returns HTTP
   429 and a retry time; provider outages return a friendly unavailable result without automatic
   retry, provider fallback, or retriever fallback.
+- Cap provider-backed answers app-wide per UTC day (`RAG_ANSWER_DAILY_BUDGET`, default 100), since
+  the per-guest limit is cookie-keyed and resets when a client discards its cookie. A spent budget
+  returns an unavailable result with reason `daily_answer_budget_exhausted` and calls no provider.
+- Cache verified answers in process memory (LRU, 256 entries, 24 h). The key hashes the question,
+  instructions, provider, model, output cap, and the retrieved excerpts and citations, with
+  per-upload chunk IDs replaced by positions, so the same question about an identical document is
+  answered once. Cached answers are remapped to the current chunk IDs and re-verified with the
+  same exact-quote check; unverified answers are never cached. A hit spends no budget or rate limit.
 - Keep the feature labelled experimental until the locked Phase 2 release gates pass.
 
 ## Options Considered
@@ -50,8 +58,10 @@ This is outside the current need. It would expand authority, prompt-injection ex
 - Exact-quote verification provides strong attribution, not proof that a document is factually correct.
 - Provider failure does not affect analytics or Phase 1 evidence retrieval.
 - Without the selected provider's key, grounded answers are unavailable while document indexing and retrieval remain operational.
-- The local observability endpoint and rate limiter are process-local portfolio controls, not a
-  production distributed quota, billing, or operations system.
+- The local observability endpoint, rate limiter, daily budget, and answer cache are
+  process-local portfolio controls that reset on restart, not a production distributed quota,
+  billing, or operations system. Evaluations call providers directly and bypass the cache, so
+  they measure the model rather than replaying earlier answers.
 - Temporary process-local storage and anonymous cookies remain portfolio limitations, not production tenancy.
 
 ## Explicit Non-goals

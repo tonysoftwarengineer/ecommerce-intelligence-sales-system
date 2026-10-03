@@ -13,6 +13,8 @@ from api.routes import (
     analysis_store,
     delete_owner_rag_scopes,
     document_store,
+    rag_answer_cache,
+    rag_answer_daily_budget,
     rag_answer_observability,
     rag_answer_rate_limiter,
     rag_transaction_lock,
@@ -102,6 +104,8 @@ async def lifespan(app: FastAPI):
         retrieval_service.clear()
         rag_answer_observability.clear()
         rag_answer_rate_limiter.clear()
+        rag_answer_cache.clear()
+        rag_answer_daily_budget.clear()
         upload_rate_limiter.clear()
         guest_session_store.clear()
 

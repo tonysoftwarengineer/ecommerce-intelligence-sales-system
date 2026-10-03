@@ -84,3 +84,66 @@ def test_observability_aggregates_usage_without_retaining_content() -> None:
     assert "customer refund question" not in rendered.lower()
     assert "private-policy.md" not in rendered.lower()
     assert "opaque-guest" not in rendered
+
+
+def test_answer_cache_evicts_least_recently_used_and_expires_entries() -> None:
+    from api.rag_answer_cache import RagAnswerCache
+
+    clock = _Clock()
+    cache = RagAnswerCache(max_entries=2, ttl_seconds=60, clock=clock)
+    cache.put("a", {"claims": []})
+    cache.put("b", {"claims": []})
+    assert cache.get("a") is not None
+    cache.put("c", {"claims": []})
+
+    assert cache.get("b") is None
+    assert cache.get("a") is not None
+    assert cache.get("c") is not None
+
+    clock.now = 60.0
+    assert cache.get("a") is None
+    assert len(cache) == 1
+
+
+def test_daily_budget_is_app_wide_and_resets_at_utc_midnight() -> None:
+    from datetime import datetime, timedelta, timezone
+
+    from api.rag_answer_rate_limit import RagAnswerDailyBudget
+
+    now = [datetime(2026, 10, 3, 23, 59, tzinfo=timezone.utc)]
+    budget = RagAnswerDailyBudget(limit=2, clock=lambda: now[0])
+
+    assert budget.consume() is True
+    assert budget.consume() is True
+    assert budget.consume() is False
+    assert budget.remaining() == 0
+
+    now[0] += timedelta(minutes=2)
+    assert budget.remaining() == 2
+    assert budget.consume() is True
+
+
+def test_cache_key_ignores_per_upload_chunk_ids_but_not_content() -> None:
+    import dataclasses
+
+    from api.rag_answer_cache import answer_cache_key, from_portable, to_portable
+    from src.rag.contracts import RetrievedEvidence
+
+    fields = {f.name for f in dataclasses.fields(RetrievedEvidence)}
+    base = {name: None for name in fields}
+    base.update(chunk_id="upload-1-chunk", citation="shipping.md v1 · chunk 1", excerpt="Two days.")
+    first = (RetrievedEvidence(**base),)
+    same_text = (dataclasses.replace(first[0], chunk_id="upload-2-chunk"),)
+    other_text = (dataclasses.replace(first[0], excerpt="Three days."),)
+
+    key = answer_cache_key("p", "m", 1024, "How long?", first)
+    assert answer_cache_key("p", "m", 1024, "How long?", same_text) == key
+    assert answer_cache_key("p", "m", 1024, "How long?", other_text) != key
+    assert answer_cache_key("p", "m", 1024, "How fast?", first) != key
+
+    payload = {"claims": [{"claim": "x", "chunk_id": "upload-1-chunk", "supporting_quote": "q"}]}
+    portable = to_portable(payload, first)
+    assert portable["claims"][0]["chunk_id"] == "evidence-1"
+    assert payload["claims"][0]["chunk_id"] == "upload-1-chunk"
+    replayed = from_portable(portable, same_text)
+    assert replayed["claims"][0]["chunk_id"] == "upload-2-chunk"

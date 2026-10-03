@@ -214,6 +214,18 @@ function EvidenceResult({
 }: {
   result: RagAnswerResponse;
 }) {
+  if (result.status === "unavailable" && result.reason_codes.includes("daily_answer_budget_exhausted")) {
+    return (
+      <div className="evidence-search__empty" role="status">
+        <h3>Today's free demo answers are used up</h3>
+        <p>
+          This demo allows a limited number of AI answers per day so its free quota is not used up.
+          No answer was generated. Your sales dashboard still works, and you can ask again tomorrow.
+        </p>
+        <TechnicalSummary result={result} />
+      </div>
+    );
+  }
   if (result.status === "unavailable") {
     const providerUnavailable =
       result.reason_codes.includes("answer_provider_unavailable") && result.evidence.length > 0;

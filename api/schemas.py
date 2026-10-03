@@ -121,6 +121,7 @@ class RagAnswerObservabilityResponse(BaseModel):
     answer_requests: int
     provider_backed_attempts: int
     rate_limited_requests: int
+    cache_hits: int
     usage_unavailable_count: int
     latency_ms: AnalysisLatencyMetrics
     input_tokens: AnalysisLatencyMetrics

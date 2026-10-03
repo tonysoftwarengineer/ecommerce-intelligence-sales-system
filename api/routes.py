@@ -26,8 +26,15 @@ from api.product_demand import (
     product_demand_assumptions_from_request,
     product_demand_data_quality_unavailable_response,
 )
+from api.rag_answer_cache import (
+    RagAnswerCache,
+    RecordingAnswerProvider,
+    ReplayAnswerProvider,
+    answer_cache_key,
+    to_portable,
+)
 from api.rag_answer_observability import RagAnswerObservability
-from api.rag_answer_rate_limit import RagAnswerRateLimiter
+from api.rag_answer_rate_limit import RagAnswerDailyBudget, RagAnswerRateLimiter
 from api.rag_answer_service import answer_provider, provider_is_configured
 from api.rag_service import retrieval_service
 from api.schemas import (
@@ -69,6 +76,8 @@ from config import (
     ANALYSIS_TTL_MINUTES,
     DEVELOPMENT_OBSERVABILITY_ENABLED,
     DEVELOPMENT_OBSERVABILITY_TOKEN,
+    RAG_ANSWER_DAILY_BUDGET,
+    RAG_ANSWER_MAX_OUTPUT_TOKENS,
     RAG_ANSWER_RATE_LIMIT_PER_MINUTE,
     RAG_DOCUMENT_MAX_BYTES,
     RAG_DOCUMENT_TTL_MINUTES,
@@ -88,7 +97,7 @@ from src.generic_sales.transformation import (
 from src.generic_sales.validation import validate_sales_data
 from src.mapping_suggestions import suggest_schema_mapping
 from src.product_demand.service import analyze_product_demand
-from src.rag.answers import generate_grounded_answer
+from src.rag.answers import AnswerProviderError, AnswerStatus, generate_grounded_answer
 from src.rag.contracts import RagDocumentMetadata, RagDocumentType
 from src.rag.index import IndexUnavailableError
 from src.schema_mapping import validate_schema_mapping
@@ -103,6 +112,8 @@ document_store = TemporaryDocumentStore(ttl=timedelta(minutes=RAG_DOCUMENT_TTL_M
 analysis_observability = AnalysisObservability()
 rag_answer_observability = RagAnswerObservability()
 rag_answer_rate_limiter = RagAnswerRateLimiter(RAG_ANSWER_RATE_LIMIT_PER_MINUTE)
+rag_answer_daily_budget = RagAnswerDailyBudget(RAG_ANSWER_DAILY_BUDGET)
+rag_answer_cache = RagAnswerCache()
 # Reuses the same generic sliding-window limiter as the RAG-answer budget
 # above; it isn't RAG-specific, just named for its first caller.
 upload_rate_limiter = RagAnswerRateLimiter(UPLOAD_RATE_LIMIT_PER_MINUTE)
@@ -780,6 +791,21 @@ def retrieve_analysis_evidence(
     }
 
 
+class _DailyBudgetExhaustedProvider:
+    """Fail closed without calling the provider once today's app-wide budget is spent."""
+
+    configured = True
+
+    def __init__(self, name: str, model: str) -> None:
+        self.name = name
+        self.model = model
+
+    def generate(self, question, evidence):
+        raise AnswerProviderError(
+            "Today's demo answer budget is used up.", "daily_answer_budget_exhausted"
+        )
+
+
 @router.post(
     "/analyses/{analysis_id}/rag/answer",
     response_model=RagAnswerResponse,
@@ -796,11 +822,30 @@ def answer_from_analysis_documents(
     with rag_transaction_lock:
         retrieval = retrieval_service.retrieve(owner_scope_id, analysis_id, question)
     provider_attempted = False
+    cache_hit = False
+    cache_key = None
+    provider = answer_provider
     if (
         retrieval.status.value == "evidence_available"
         and retrieval.evidence
         and provider_is_configured(answer_provider)
     ):
+        cache_key = answer_cache_key(
+            answer_provider.name,
+            answer_provider.model,
+            RAG_ANSWER_MAX_OUTPUT_TOKENS,
+            question,
+            retrieval.evidence,
+        )
+        cached_payload = rag_answer_cache.get(cache_key)
+        if cached_payload is not None:
+            cache_hit = True
+            provider = ReplayAnswerProvider(
+                answer_provider.name, answer_provider.model, cached_payload
+            )
+    if cache_key is not None and not cache_hit and rag_answer_daily_budget.remaining() == 0:
+        provider = _DailyBudgetExhaustedProvider(answer_provider.name, answer_provider.model)
+    elif cache_key is not None and not cache_hit:
         decision = rag_answer_rate_limiter.consume(owner_scope_id)
         if not decision.allowed:
             rag_answer_observability.record_rate_limited(
@@ -815,9 +860,20 @@ def answer_from_analysis_documents(
                 ),
                 headers={"Retry-After": str(decision.retry_after_seconds)},
             )
-        provider_attempted = True
-    result = generate_grounded_answer(question, retrieval, answer_provider)
-    rag_answer_observability.record_result(result, provider_attempted)
+        if rag_answer_daily_budget.consume():
+            provider = RecordingAnswerProvider(answer_provider)
+            provider_attempted = True
+        else:
+            provider = _DailyBudgetExhaustedProvider(answer_provider.name, answer_provider.model)
+    result = generate_grounded_answer(question, retrieval, provider)
+    if (
+        isinstance(provider, RecordingAnswerProvider)
+        and cache_key is not None
+        and result.status == AnswerStatus.GROUNDED_ANSWER
+        and provider.payload is not None
+    ):
+        rag_answer_cache.put(cache_key, to_portable(provider.payload, retrieval.evidence))
+    rag_answer_observability.record_result(result, provider_attempted, cache_hit=cache_hit)
     return {
         "status": result.status,
         "analysis_id": analysis_id,

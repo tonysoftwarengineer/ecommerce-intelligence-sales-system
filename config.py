@@ -77,6 +77,9 @@ RAG_ANSWER_TIMEOUT_SECONDS = float(os.environ.get("RAG_ANSWER_TIMEOUT_SECONDS", 
 RAG_ANSWER_PROVIDER = os.environ.get("RAG_ANSWER_PROVIDER", "gemini").strip().lower()
 RAG_ANSWER_MAX_OUTPUT_TOKENS = int(os.environ.get("RAG_ANSWER_MAX_OUTPUT_TOKENS", "1024"))
 RAG_ANSWER_RATE_LIMIT_PER_MINUTE = int(os.environ.get("RAG_ANSWER_RATE_LIMIT_PER_MINUTE", "6"))
+# App-wide cap on provider-backed answers per UTC day, across every guest. The
+# per-guest limit above resets when a client discards its cookie; this does not.
+RAG_ANSWER_DAILY_BUDGET = int(os.environ.get("RAG_ANSWER_DAILY_BUDGET", "100"))
 DEVELOPMENT_OBSERVABILITY_ENABLED = os.environ.get(
     "DEVELOPMENT_OBSERVABILITY_ENABLED", "false"
 ).lower() in {"1", "true", "yes"}
@@ -101,6 +104,8 @@ if RAG_ANSWER_MAX_OUTPUT_TOKENS < 1:
     raise ValueError("RAG_ANSWER_MAX_OUTPUT_TOKENS must be positive")
 if RAG_ANSWER_RATE_LIMIT_PER_MINUTE < 1:
     raise ValueError("RAG_ANSWER_RATE_LIMIT_PER_MINUTE must be positive")
+if RAG_ANSWER_DAILY_BUDGET < 1:
+    raise ValueError("RAG_ANSWER_DAILY_BUDGET must be positive")
 if UPLOAD_RATE_LIMIT_PER_MINUTE < 1:
     raise ValueError("UPLOAD_RATE_LIMIT_PER_MINUTE must be positive")
 validate_observability_settings(DEVELOPMENT_OBSERVABILITY_ENABLED, DEVELOPMENT_OBSERVABILITY_TOKEN)

@@ -353,6 +353,38 @@ test("walks a fictional online retailer from sales upload to demand preview and 
   ).toBeVisible();
   await page.unroute("**/rag/answer");
 
+  await page.route("**/rag/answer", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        status: "unavailable",
+        analysis_id: "browser-test",
+        search_scope: "active_latest_documents_in_anonymous_guest_analysis",
+        provider: "groq_rest",
+        model: "openai/gpt-oss-20b",
+        latency_ms: 1,
+        reason_codes: ["answer_provider_unavailable", "daily_answer_budget_exhausted"],
+        claims: [],
+        evidence: [],
+        technical: {
+          selected_method: "tfidf",
+          searched_document_count: 1,
+          searched_chunk_count: 1,
+          retrieval_latency_ms: 1,
+        },
+      }),
+    });
+  });
+  await question.fill("What does standard delivery cost?");
+  await panel.getByRole("button", { name: "Get answer from documents" }).click();
+  await expect(
+    panel.getByRole("heading", { name: "Today's free demo answers are used up" }),
+  ).toBeVisible();
+  await expect(panel.getByText(/you can ask again tomorrow/)).toBeVisible();
+  await expect(panel.getByText(/Groq is temporarily unavailable/)).toHaveCount(0);
+  await page.unroute("**/rag/answer");
+
   await question.fill("Which television advertisement caused profit to increase?");
   await panel.getByRole("button", { name: "Get answer from documents" }).click();
   await expect(panel.getByRole("heading", { name: "Not enough information in these documents" })).toBeVisible();
