@@ -1,9 +1,9 @@
 interface SourceSelectionProps {
-  onSelectOlist: () => void;
   onSelectUpload: () => void;
+  onSelectSample: () => void;
 }
 
-export function SourceSelection({ onSelectOlist, onSelectUpload }: SourceSelectionProps) {
+export function SourceSelection({ onSelectUpload, onSelectSample }: SourceSelectionProps) {
   return (
     <main className="source-page">
       <div className="source-page__glow" aria-hidden="true" />
@@ -19,8 +19,8 @@ export function SourceSelection({ onSelectOlist, onSelectUpload }: SourceSelecti
         <p className="eyebrow">Built for small online retailers</p>
         <h1>Understand what your sales data is saying.</h1>
         <p className="source-hero__copy">
-          Upload an order export, review its columns, and see validated sales changes and
-          investigation prompts. Forecasts appear only when their data checks pass.
+          Upload your order export to see checked sales figures and changes over time.
+          Forecasts appear only when the data supports them.
         </p>
       </section>
 
@@ -29,17 +29,17 @@ export function SourceSelection({ onSelectOlist, onSelectUpload }: SourceSelecti
           <span className="source-card__icon" aria-hidden="true">↗</span>
           <span className="source-card__tag">Analyze your business</span>
           <strong>Upload a sales CSV</strong>
-          <span>Map your columns, verify data quality, and explore a private sales dashboard.</span>
+          <span>Tell us what your columns mean, check the results, and explore your sales.</span>
           <span className="source-card__action">Start analysis <span aria-hidden="true">→</span></span>
         </button>
 
-        <button type="button" className="source-card" onClick={onSelectOlist}>
+        <button type="button" className="source-card" onClick={onSelectSample}>
           <span className="source-card__icon source-card__icon--muted" aria-hidden="true">◎</span>
-          <span className="source-card__tag">Product demonstration</span>
-          <strong>Explore the Olist demo</strong>
-          <span>Open the pre-built Brazilian ecommerce dashboard and model outputs.</span>
+          <span className="source-card__tag">No file needed · fictional data</span>
+          <strong>Try a sample retailer</strong>
+          <span>Review a small shop’s sample CSV in the same guided flow. No real customer data is used.</span>
           <span className="source-card__action source-card__action--muted">
-            View demo <span aria-hidden="true">→</span>
+            Try sample <span aria-hidden="true">→</span>
           </span>
         </button>
       </section>

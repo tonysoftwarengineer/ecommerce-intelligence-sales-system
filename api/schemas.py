@@ -88,9 +88,6 @@ class SegmentsResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str
-    report_ready: bool
-    forecast_ready: bool
-    segments_ready: bool
 
 
 class AnalysisLatencyMetrics(BaseModel):

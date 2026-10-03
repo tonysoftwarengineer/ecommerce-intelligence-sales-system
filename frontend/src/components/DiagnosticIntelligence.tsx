@@ -17,11 +17,11 @@ export function DiagnosticIntelligence({
     <section className="diagnostic-intelligence" aria-labelledby="diagnostic-intelligence-title">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Decision intelligence</p>
+          <p className="eyebrow">Sales changes</p>
           <h2 id="diagnostic-intelligence-title">What changed and what to review</h2>
           <p>
-            Findings use validated data. Recommendations are investigation prompts and require
-            human review.
+            These comparisons use accepted rows. Suggested next steps are things to check,
+            not proven causes of a change.
           </p>
         </div>
       </div>
@@ -34,7 +34,7 @@ export function DiagnosticIntelligence({
         />
         <DiagnosticSection
           title="Unusual changes"
-          subtitle="Compared with a six-month historical baseline"
+          subtitle="Compared with the previous six complete months"
           report={diagnostics.anomalies}
           formatMoney={formatMoney}
         />
@@ -105,9 +105,12 @@ function DiagnosticSection({
                   <div className="recommendation__meta">
                     <span>Human review required</span>
                     {insight.recommended_action.score ? (
-                      <span title="Impact + urgency + confidence">
-                        Score {insight.recommended_action.score.total}/9
-                      </span>
+                      <details>
+                        <summary>How this was prioritized</summary>
+                        <span title="Impact + urgency + confidence">
+                          Score {insight.recommended_action.score.total}/9 from impact, urgency, and confidence
+                        </span>
+                      </details>
                     ) : null}
                   </div>
                 </div>
@@ -142,7 +145,7 @@ function Evidence({
       {evidence.percent_change !== null ? (
         <small className={evidence.percent_change < 0 ? "text-negative" : "text-positive"}>
           {evidence.percent_change > 0 ? "+" : ""}
-          {evidence.percent_change.toFixed(1)}% vs baseline
+          {evidence.percent_change.toFixed(1)}% from the earlier period
         </small>
       ) : null}
     </div>

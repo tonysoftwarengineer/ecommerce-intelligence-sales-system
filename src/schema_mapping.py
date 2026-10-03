@@ -102,22 +102,26 @@ def validate_schema_mapping(
 
     errors = []
     if missing_required_fields:
-        errors.append("Missing required mappings: " + ", ".join(missing_required_fields))
+        errors.append(
+            "Choose a CSV column for each required field: "
+            + ", ".join(field.replace("_", " ") for field in missing_required_fields)
+        )
     if unsupported_fields:
-        errors.append("Unsupported canonical fields: " + ", ".join(unsupported_fields))
+        errors.append("These field names are not supported: " + ", ".join(unsupported_fields))
     if unknown_mapped_columns:
         errors.append(
-            "Mapped columns not found in the uploaded CSV: " + ", ".join(unknown_mapped_columns)
+            "These selected columns are not in this CSV: " + ", ".join(unknown_mapped_columns)
         )
     if duplicate_mapped_columns:
         errors.append(
-            "CSV columns cannot be mapped more than once: " + ", ".join(duplicate_mapped_columns)
+            "Each CSV column can be selected only once. Check: "
+            + ", ".join(duplicate_mapped_columns)
         )
 
     warnings = []
     if unmapped_columns:
         warnings.append(
-            "These columns will be excluded from analysis: " + ", ".join(unmapped_columns)
+            "These columns are not used in this analysis: " + ", ".join(unmapped_columns)
         )
 
     return {

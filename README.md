@@ -7,17 +7,18 @@ forecast previews when eligible, and experimental answers from approved
 documents. Other valid sales CSVs can use the same mapping path; the business
 focus is not an upload restriction.
 
-The [Olist Brazilian E-Commerce dataset](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce)
-(2016–2018) powers a separate fixed demo and benchmark. Its dashboard uses
-Brazilian Real (`R$`). Olist-specific fields are not the uploaded-business contract.
-
-![Dashboard](docs/dashboard.png)
+Visitors without their own file can choose **Try a sample retailer**, which runs a small,
+clearly fictional shop's CSV through the same guided upload, mapping, validation, and dashboard
+flow. The [Olist Brazilian E-Commerce dataset](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce)
+(2016–2018) was the project's original benchmark. Its research code remains in the repository,
+but it is no longer part of the live app. Olist-specific fields are not the uploaded-business
+contract.
 
 ## What it does
 
-**Olist fixed-demo analytics** — total revenue, revenue by month, average order value, top categories, top customers, revenue by state.
+**Olist research code (offline, not in the live app)** — revenue aggregates, top categories, top customers, and revenue by state, plus:
 
-**Olist benchmark machine learning**
+**Olist benchmark machine learning (offline)**
 - *Revenue forecasting* — a linear trend fit over a recent window. The window size was chosen by sweeping candidates against a rolling backtest, not assumed: 6 months scored **14.2% MAPE** vs 26.0% for 12 months and 31.1% for full history.
 - *Customer segmentation* — RFM features + k-means over 94,398 customers, labelled from cluster centroids after fitting. The segmentation surfaces a real finding: **High Value is the only segment that orders more than once** (2.11 avg orders vs 1.00 everywhere else).
 
@@ -115,7 +116,7 @@ those libraries may resolve to newer, untested versions. Use
 `pip install -r requirements.txt -c constraints.txt` alone only when reproducing
 the production image, which never installs test/lint tooling (see `Dockerfile.api`).
 
-No Kaggle credentials are needed — Olist is a public dataset and `kagglehub` fetches it anonymously on first run (~43MB). `data/` is gitignored and populated automatically.
+The app itself downloads no external data. Only the offline Olist research code and its integration tests fetch the public Olist dataset, anonymously via `kagglehub` (~43MB, no Kaggle credentials needed). `data/` is gitignored and populated automatically.
 
 ## Usage
 
@@ -152,10 +153,7 @@ protected by host-scoped cookies.
 
 | Endpoint | Returns |
 |---|---|
-| `GET /api/v1/health` | Readiness of each cached subsystem |
-| `GET /api/v1/report` | All six analytics metrics |
-| `GET /api/v1/forecast` | 3-month revenue projection |
-| `GET /api/v1/segments` | Per-segment summary (counts + mean RFM) |
+| `GET /api/v1/health` | Liveness check: `{"status": "ok"}` |
 | `POST /api/v1/uploads/preview` | Temporary upload ID, expiry, CSV shape, types, and first 5 rows |
 | `POST /api/v1/uploads/mapping-suggestions` | Explainable header-based mapping recommendations; the business must review them |
 | `POST /api/v1/uploads/distinct-values` | Profile all distinct values for mapped status columns (capped at 100) |
@@ -177,9 +175,9 @@ protected by host-scoped cookies.
 | `POST /api/v1/analyses/{analysis_id}/rag/answer` | Return only verified, claim-level grounded answers or a bounded abstention/unavailable result |
 | `GET /api/v1/observability/rag-answer-metrics` | Aggregate grounded-answer metrics when enabled and called with the admin token; otherwise 404 |
 
-`/api/v1/segments` returns a summary by default. Pass `?include_customers=true` for the full per-customer rows — that response is ~12MB versus ~500 bytes, so it's opt-in.
-
-The dataset is built once during app startup and cached in memory; requests are served from that cache. Forecasting and segmentation are isolated — if either fails, its endpoint returns 503 while the rest of the API keeps working, and the failure is logged with a full traceback.
+The API no longer downloads or serves the Olist demo dataset at startup, so it is ready to
+serve as soon as the process starts. The Olist research code under `src/stages` and
+`src/models` remains for a separate cleanup.
 
 Business CSV uploads are held in process memory for at most 30 minutes and are removed early by the
 web app after analysis succeeds. Derived analysis sessions and approved RAG source documents expire

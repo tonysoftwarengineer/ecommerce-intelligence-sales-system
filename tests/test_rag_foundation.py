@@ -62,7 +62,7 @@ def test_guest_cookie_is_httponly_and_scopes_csv_uploads() -> None:
         },
     )
     assert hidden.status_code == 404
-    assert hidden.json()["detail"] == "Temporary upload not found"
+    assert hidden.json()["detail"] == "This upload is no longer available. Upload the CSV again."
 
 
 def test_rag_document_api_is_ephemeral_versioned_and_session_isolated() -> None:

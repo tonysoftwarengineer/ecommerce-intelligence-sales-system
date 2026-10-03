@@ -9,6 +9,7 @@ import type {
 
 interface EvidenceSearchPanelProps {
   analysisId: string;
+  isSample?: boolean;
 }
 
 const DOCUMENT_TYPES: Array<{ value: RagDocumentType; label: string }> = [
@@ -19,7 +20,7 @@ const DOCUMENT_TYPES: Array<{ value: RagDocumentType; label: string }> = [
   { value: "other_approved", label: "Other approved document" },
 ];
 
-export function EvidenceSearchPanel({ analysisId }: EvidenceSearchPanelProps) {
+export function EvidenceSearchPanel({ analysisId, isSample = false }: EvidenceSearchPanelProps) {
   const [documents, setDocuments] = useState<RagDocumentMetadata[]>([]);
   const [documentType, setDocumentType] = useState<RagDocumentType>("policy");
   const [file, setFile] = useState<File | null>(null);
@@ -44,12 +45,12 @@ export function EvidenceSearchPanel({ analysisId }: EvidenceSearchPanelProps) {
     };
   }, [analysisId]);
 
-  async function handleUpload() {
-    if (!file) return;
+  async function handleUpload(selectedFile: File | null = file, selectedType = documentType) {
+    if (!selectedFile) return;
     setUploading(true);
     setError(null);
     try {
-      const created = await uploadRagDocument(analysisId, file, documentType);
+      const created = await uploadRagDocument(analysisId, selectedFile, selectedType);
       setDocuments((current) => [
         ...current.map((item) =>
           item.filename === created.filename && item.active_for_retrieval
@@ -66,6 +67,23 @@ export function EvidenceSearchPanel({ analysisId }: EvidenceSearchPanelProps) {
       setFile(null);
       setResult(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    } catch (reason) {
+      setError(messageFrom(reason));
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function addSamplePolicy() {
+    setUploading(true);
+    setError(null);
+    try {
+      const response = await fetch(`${import.meta.env.BASE_URL}demo/shipping_policy.md`);
+      if (!response.ok) throw new Error("The sample policy could not be loaded. Please try again.");
+      const policy = new File([await response.blob()], "harbor_home_shipping_policy.md", {
+        type: "text/markdown",
+      });
+      await handleUpload(policy, "policy");
     } catch (reason) {
       setError(messageFrom(reason));
     } finally {
@@ -99,14 +117,31 @@ export function EvidenceSearchPanel({ analysisId }: EvidenceSearchPanelProps) {
     <section className="evidence-search card" aria-labelledby="evidence-search-title">
       <div className="card__head evidence-search__head">
         <div>
-          <p className="eyebrow">RAG Phase 2 · grounded answers</p>
-          <h2 id="evidence-search-title">Ask approved business documents</h2>
+          <p className="eyebrow">Optional · experimental AI answers</p>
+          <h2 id="evidence-search-title">Ask about your documents</h2>
           <p className="card__sub">
-            AI answers use only retrieved approved-document excerpts. They do not calculate sales or forecasts.
+            Upload a policy or other approved text file, then ask about it. Answers quote the source.
+            This does not answer questions about your sales or forecasts yet.
           </p>
         </div>
         <span className="quality-badge quality-badge--experimental">experimental</span>
       </div>
+
+      {isSample ? (
+        <div className="evidence-search__sample">
+          <p>Want to try a document question? This fictional retailer has a sample shipping policy.</p>
+          <button
+            className="button button--secondary"
+            type="button"
+            disabled={uploading || activeDocuments.some((item) => item.filename === "harbor_home_shipping_policy.md")}
+            onClick={() => void addSamplePolicy()}
+          >
+            {activeDocuments.some((item) => item.filename === "harbor_home_shipping_policy.md")
+              ? "Sample policy added"
+              : uploading ? "Adding sample policy…" : "Add sample shipping policy"}
+          </button>
+        </div>
+      ) : null}
 
       <div className="evidence-search__upload">
         <label>
@@ -118,7 +153,7 @@ export function EvidenceSearchPanel({ analysisId }: EvidenceSearchPanelProps) {
           </select>
         </label>
         <label>
-          <span>UTF-8 text or Markdown file</span>
+          <span>Text or Markdown file (.txt or .md)</span>
           <input
             id="rag-document-file"
             ref={fileInputRef}
@@ -127,14 +162,14 @@ export function EvidenceSearchPanel({ analysisId }: EvidenceSearchPanelProps) {
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           />
         </label>
-        <button className="button button--secondary" type="button" disabled={!file || uploading} onClick={handleUpload}>
-          {uploading ? "Indexing…" : "Upload and index"}
+        <button className="button button--secondary" type="button" disabled={!file || uploading} onClick={() => void handleUpload()}>
+          {uploading ? "Adding document…" : "Add document"}
         </button>
       </div>
 
       <div className="evidence-search__scope" aria-live="polite">
-        <strong>{activeDocuments.length} active latest document{activeDocuments.length === 1 ? "" : "s"}</strong>
-        <span>Only documents approved for this analysis are searched.</span>
+        <strong>{activeDocuments.length} searchable document{activeDocuments.length === 1 ? "" : "s"}</strong>
+        <span>Only documents added to this sales analysis can be searched.</span>
         {activeDocuments.length > 0 ? (
           <ul>
             {activeDocuments.map((document) => (
@@ -147,7 +182,7 @@ export function EvidenceSearchPanel({ analysisId }: EvidenceSearchPanelProps) {
       </div>
 
       <form className="evidence-search__question" onSubmit={handleSearch}>
-        <label htmlFor="rag-question">Ask an English question about the approved documents</label>
+        <label htmlFor="rag-question">Ask a question about the documents above (English)</label>
         <div>
           <input
             id="rag-question"
@@ -159,7 +194,7 @@ export function EvidenceSearchPanel({ analysisId }: EvidenceSearchPanelProps) {
             placeholder="For example: How long does standard delivery take?"
           />
           <button className="button" type="submit" disabled={searching || question.trim().length < 3}>
-            {searching ? "Checking evidence…" : "Get grounded answer"}
+            {searching ? "Checking documents…" : "Get answer from documents"}
           </button>
         </div>
       </form>
@@ -184,7 +219,7 @@ function EvidenceResult({
       result.reason_codes.includes("answer_provider_unavailable") && result.evidence.length > 0;
     return (
       <div className="evidence-search__empty" role="status">
-        <h3>Grounded answer is temporarily unavailable</h3>
+        <h3>Document answer is temporarily unavailable</h3>
         {providerUnavailable ? (
           <>
             <p>
@@ -192,7 +227,7 @@ function EvidenceResult({
             </p>
           </>
         ) : (
-          <p>No AI claim was returned. Your dashboard and Phase 1 evidence index are unaffected.</p>
+          <p>No answer was returned. Your sales dashboard is still available. Please try again later.</p>
         )}
         <TechnicalSummary result={result} />
       </div>
@@ -201,16 +236,16 @@ function EvidenceResult({
   if (result.status === "insufficient_evidence") {
     return (
       <div className="evidence-search__empty" role="status">
-        <h3>Insufficient evidence</h3>
-        <p>No source excerpt passed the relevance check, so the system returned no evidence instead of guessing.</p>
+        <h3>Not enough information in these documents</h3>
+        <p>We could not find a relevant passage, so we did not guess. Try a different question or add the right document.</p>
         <TechnicalSummary result={result} />
       </div>
     );
   }
   return (
     <div className="evidence-search__results" aria-live="polite">
-      <h3>Grounded answer</h3>
-      <p>Each claim was checked against an exact quote from retrieved evidence.</p>
+      <h3>Answer from your documents</h3>
+      <p>Each point below includes the document quote used to support it.</p>
       <ol>
         {result.claims.map((claim, index) => (
           <li key={`${claim.chunk_id}-${index}`} className="evidence-search__item">

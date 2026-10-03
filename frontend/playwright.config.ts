@@ -8,6 +8,9 @@ const apiPort = process.env.E2E_API_PORT ?? "8000";
 const frontendPort = process.env.E2E_FRONTEND_PORT ?? "5173";
 const apiBaseUrl = `http://127.0.0.1:${apiPort}`;
 const frontendBaseUrl = `http://127.0.0.1:${frontendPort}`;
+const apiPython = process.env.E2E_PYTHON ?? (
+  process.env.CI ? "python3" : path.join(projectRoot, ".venv", "bin", "python")
+);
 
 export default defineConfig({
   testDir: "./e2e",
@@ -34,7 +37,7 @@ export default defineConfig({
   webServer: [
     {
       command: (
-        "python3 -m uvicorn api.main:app --host 127.0.0.1 " +
+        `${JSON.stringify(apiPython)} -m uvicorn api.main:app --host 127.0.0.1 ` +
         `--port ${apiPort} ` +
         "--lifespan off"
       ),

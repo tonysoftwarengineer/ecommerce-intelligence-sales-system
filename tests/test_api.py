@@ -102,7 +102,7 @@ def test_csv_preview_rejects_non_csv_upload():
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "Uploaded file must be a CSV"
+    assert response.json()["detail"] == "Choose a CSV (.csv) file and try again."
 
 
 def test_csv_preview_preserves_leading_zero_identifiers_in_samples():
@@ -238,7 +238,7 @@ def test_csv_preview_rejects_empty_csv_upload():
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "Uploaded CSV is empty"
+    assert response.json()["detail"] == "This CSV is empty. Export your sales rows and try again."
 
 
 def test_csv_preview_rejects_unreadable_csv_upload():
@@ -250,7 +250,10 @@ def test_csv_preview_rejects_unreadable_csv_upload():
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "Uploaded CSV could not be parsed"
+    assert (
+        response.json()["detail"]
+        == "We could not read this CSV. Check its format and export it again."
+    )
 
 
 def test_csv_preview_rejects_file_over_configured_size_limit():
@@ -263,7 +266,9 @@ def test_csv_preview_rejects_file_over_configured_size_limit():
         )
 
     assert response.status_code == 413
-    assert response.json()["detail"] == "Uploaded CSV exceeds the size limit"
+    assert (
+        response.json()["detail"] == "This CSV is too large. Export a smaller file and try again."
+    )
 
 
 def test_csv_preview_rate_limit_returns_429_with_retry_after(monkeypatch):
@@ -318,7 +323,7 @@ def test_schema_mapping_accepts_required_fields_and_warns_about_unmapped_columns
         "unit_of_measure",
     }.issubset(body["optional_fields"])
     assert body["unmapped_columns"] == ["Internal Notes"]
-    assert body["warnings"] == ["These columns will be excluded from analysis: Internal Notes"]
+    assert body["warnings"] == ["These columns are not used in this analysis: Internal Notes"]
 
 
 def test_schema_mapping_uses_revenue_mode_specific_requirements():
@@ -951,7 +956,7 @@ def test_schema_mapping_rejects_unknown_upload_id():
     )
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "Temporary upload not found"
+    assert response.json()["detail"] == "This upload is no longer available. Upload the CSV again."
 
 
 def test_schema_mapping_reports_expired_upload():
@@ -964,7 +969,7 @@ def test_schema_mapping_reports_expired_upload():
         )
 
     assert response.status_code == 410
-    assert response.json()["detail"] == "Temporary upload has expired"
+    assert response.json()["detail"] == "Your upload expired. Upload the CSV again to continue."
 
 
 def test_temporary_upload_can_be_deleted_immediately():
@@ -996,59 +1001,9 @@ def test_upload_cors_preflight_allows_post():
     assert "POST" in response.headers["access-control-allow-methods"]
 
 
-@pytest.mark.integration
-def test_report_endpoint_survives_forecast_failure():
-    # Patched where it's *used* (api.main), not where it's defined
-    # (src.models.forecast) -- standard mocking practice. TestClient as a
-    # context manager genuinely runs the real lifespan hook, including a
-    # real build_dataset() call -- only forecasting is faked, nothing else.
-    with patch("api.main.forecast_linear_trend", side_effect=RuntimeError("boom")):
+def test_api_starts_without_download_and_legacy_demo_routes_are_gone():
+    with patch("src.pipeline.build_dataset", side_effect=AssertionError("demo download called")):
         with TestClient(api_main.app) as client:
-            report_response = client.get("/api/v1/report")
-            forecast_response = client.get("/api/v1/forecast")
-
-    assert report_response.status_code == 200
-    assert forecast_response.status_code == 503
-
-
-@pytest.mark.integration
-def test_partial_months_are_flagged():
-    # The 3 dataset-boundary months (collection started/stopped mid-month)
-    # must be flagged so the frontend can exclude them from the trend chart,
-    # matching what trim_edge_artifacts already does for the forecast.
-    with TestClient(api_main.app) as client:
-        months = client.get("/api/v1/report").json()["revenue_by_month"]
-
-    flagged = {m["month"] for m in months if m["is_partial"]}
-    assert flagged == {"2016-09", "2016-12", "2018-09"}
-
-
-@pytest.mark.integration
-def test_segments_endpoint_summarises_by_default():
-    # Shipping all ~94k per-customer rows made this response ~12MB while the
-    # dashboard only ever read the 4-row summary. Guard against regressing.
-    with TestClient(api_main.app) as client:
-        default = client.get("/api/v1/segments")
-        detailed = client.get("/api/v1/segments?include_customers=true")
-
-    summary = default.json()
-    assert summary["segments"] == []
-    assert len(summary["segment_counts"]) == 4
-    assert len(default.content) < 2_000
-
-    assert len(detailed.json()["segments"]) > 1_000
-
-
-@pytest.mark.integration
-def test_cors_preflight_allows_localhost_origin():
-    with TestClient(api_main.app) as client:
-        response = client.options(
-            "/api/v1/report",
-            headers={
-                "Origin": "http://localhost:5173",
-                "Access-Control-Request-Method": "GET",
-            },
-        )
-
-    assert response.status_code == 200
-    assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
+            assert client.get("/api/v1/health").json() == {"status": "ok"}
+            for route in ("report", "forecast", "segments"):
+                assert client.get(f"/api/v1/{route}").status_code == 404

@@ -20,7 +20,6 @@ from api.analysis_store import (
     AnalysisSession,
     AnalysisSessionStore,
 )
-from api.cache import cache
 from api.document_store import DocumentNotFoundError, TemporaryDocumentStore
 from api.product_demand import (
     product_demand_analysis_to_response,
@@ -39,7 +38,6 @@ from api.schemas import (
     DataValidationResponse,
     DistinctValuesRequest,
     DistinctValuesResponse,
-    ForecastResponse,
     GenericAnalysisRequest,
     GenericAnalysisResponse,
     HealthResponse,
@@ -53,18 +51,14 @@ from api.schemas import (
     RagDocumentMetadataResponse,
     RagRetrievalRequest,
     RagRetrievalResponse,
-    ReportResponse,
     SalesDataRequest,
     SchemaMappingRequest,
     SchemaMappingValidationResponse,
-    SegmentsResponse,
 )
 from api.serializers import (
     dataframe_sample_records,
     dataframe_to_csv_bytes,
     privacy_safe_preview_records,
-    report_to_response_dict,
-    segment_summary_records,
 )
 from api.upload_store import (
     TemporaryUploadStore,
@@ -175,9 +169,13 @@ def _get_temporary_upload(owner_scope_id: str, upload_id: str):
     try:
         return upload_store.get(owner_scope_id, upload_id)
     except UploadExpiredError as exc:
-        raise HTTPException(status_code=410, detail="Temporary upload has expired") from exc
+        raise HTTPException(
+            status_code=410, detail="Your upload expired. Upload the CSV again to continue."
+        ) from exc
     except UploadNotFoundError as exc:
-        raise HTTPException(status_code=404, detail="Temporary upload not found") from exc
+        raise HTTPException(
+            status_code=404, detail="This upload is no longer available. Upload the CSV again."
+        ) from exc
 
 
 def _get_analysis_session(owner_scope_id: str, analysis_id: str) -> AnalysisSession:
@@ -185,9 +183,14 @@ def _get_analysis_session(owner_scope_id: str, analysis_id: str) -> AnalysisSess
         return analysis_store.get(owner_scope_id, analysis_id)
     except AnalysisExpiredError as exc:
         _delete_analysis_rag_scope(owner_scope_id, analysis_id)
-        raise HTTPException(status_code=410, detail="Analysis session has expired") from exc
+        raise HTTPException(
+            status_code=410,
+            detail="This sales analysis expired. Upload your CSV again to start a new one.",
+        ) from exc
     except AnalysisNotFoundError as exc:
-        raise HTTPException(status_code=404, detail="Analysis session not found") from exc
+        raise HTTPException(
+            status_code=404, detail="This sales analysis is not available in your current session."
+        ) from exc
 
 
 def _processing_config(request: SalesDataRequest) -> SalesProcessingConfig:
@@ -308,27 +311,24 @@ def _rag_evidence_response(item) -> dict:
 def _validate_english_question(question: str) -> str:
     normalized = re.sub(r"\s+", " ", question).strip()
     if len(normalized) < 3:
-        raise HTTPException(status_code=422, detail="Question must contain at least 3 characters")
+        raise HTTPException(
+            status_code=422, detail="Please enter a question with at least three characters."
+        )
     if any(ord(character) < 32 for character in normalized):
         raise HTTPException(
             status_code=422,
-            detail="Question contains unsupported control characters",
+            detail="Remove non-text control characters from your question and try again.",
         )
     letters = [character for character in normalized if character.isalpha()]
     ascii_letters = [character for character in letters if character.isascii()]
     if not ascii_letters or len(ascii_letters) / max(len(letters), 1) < 0.8:
-        raise HTTPException(status_code=422, detail="RAG Phase 1 supports English questions only")
+        raise HTTPException(status_code=422, detail="Please ask your document question in English.")
     return normalized
 
 
 @router.get("/health", response_model=HealthResponse)
 def health():
-    return HealthResponse(
-        status="ok",
-        report_ready=cache.analysis is not None,
-        forecast_ready=cache.forecast is not None,
-        segments_ready=cache.segments is not None,
-    )
+    return HealthResponse(status="ok")
 
 
 @router.get("/observability/analysis-metrics", response_model=AnalysisObservabilityResponse)
@@ -345,52 +345,40 @@ def rag_answer_metrics(request: Request):
     return rag_answer_observability.snapshot()
 
 
-@router.get("/report", response_model=ReportResponse)
-def report():
-    if cache.analysis is None:
-        raise HTTPException(status_code=503, detail="Report not ready")
-    return report_to_response_dict(cache.analysis)
-
-
-@router.get("/forecast", response_model=ForecastResponse)
-def forecast():
-    if cache.forecast is None:
-        raise HTTPException(status_code=503, detail="Forecast not available")
-    return {"horizon_months": len(cache.forecast), "forecast": cache.forecast}
-
-
-@router.get("/segments", response_model=SegmentsResponse)
-def segments(include_customers: bool = False):
-    if cache.segments is None:
-        raise HTTPException(status_code=503, detail="Segments not available")
-    return {
-        "segment_counts": segment_summary_records(cache.segments),
-        "segments": cache.segments if include_customers else [],
-    }
-
-
 @router.post("/uploads/preview", response_model=CsvPreviewResponse)
 async def preview_upload(request: Request, file: UploadFile):
     owner_scope_id = _consume_upload_rate_limit(request)
     filename = file.filename or ""
     if not filename.lower().endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Uploaded file must be a CSV")
+        raise HTTPException(status_code=400, detail="Choose a CSV (.csv) file and try again.")
 
     contents = await file.read(UPLOAD_MAX_BYTES + 1)
     if not contents:
-        raise HTTPException(status_code=400, detail="Uploaded CSV is empty")
+        raise HTTPException(
+            status_code=400, detail="This CSV is empty. Export your sales rows and try again."
+        )
     if len(contents) > UPLOAD_MAX_BYTES:
-        raise HTTPException(status_code=413, detail="Uploaded CSV exceeds the size limit")
+        raise HTTPException(
+            status_code=413,
+            detail="This CSV is too large. Export a smaller file and try again.",
+        )
 
     try:
         df = pd.read_csv(BytesIO(contents))
     except EmptyDataError as exc:
-        raise HTTPException(status_code=400, detail="Uploaded CSV is empty") from exc
+        raise HTTPException(
+            status_code=400, detail="This CSV is empty. Export your sales rows and try again."
+        ) from exc
     except (ParserError, UnicodeDecodeError) as exc:
-        raise HTTPException(status_code=400, detail="Uploaded CSV could not be parsed") from exc
+        raise HTTPException(
+            status_code=400,
+            detail="We could not read this CSV. Check its format and export it again.",
+        ) from exc
 
     if df.empty and len(df.columns) == 0:
-        raise HTTPException(status_code=400, detail="Uploaded CSV is empty")
+        raise HTTPException(
+            status_code=400, detail="This CSV is empty. Export your sales rows and try again."
+        )
 
     raw_df = pd.read_csv(BytesIO(contents), dtype=str, keep_default_na=False)
     upload = upload_store.create(
@@ -667,19 +655,27 @@ async def upload_rag_document(
     if Path(filename).suffix.lower() not in APPROVED_RAG_SUFFIXES:
         raise HTTPException(
             status_code=400,
-            detail="RAG source documents must be UTF-8 .txt or .md files",
+            detail="Choose a text (.txt) or Markdown (.md) document saved as UTF-8.",
         )
     contents = await file.read(RAG_DOCUMENT_MAX_BYTES + 1)
     if not contents:
-        raise HTTPException(status_code=400, detail="RAG source document is empty")
+        raise HTTPException(
+            status_code=400, detail="This document is empty. Choose a file with text."
+        )
     if len(contents) > RAG_DOCUMENT_MAX_BYTES:
-        raise HTTPException(status_code=413, detail="RAG source document exceeds the size limit")
+        raise HTTPException(
+            status_code=413, detail="This document is too large. Choose a smaller text file."
+        )
     try:
         text = contents.decode("utf-8")
     except UnicodeDecodeError as exc:
-        raise HTTPException(status_code=400, detail="RAG source document must be UTF-8") from exc
+        raise HTTPException(
+            status_code=400, detail="Save this document as UTF-8 text and upload it again."
+        ) from exc
     if not text.strip():
-        raise HTTPException(status_code=400, detail="RAG source document contains no text")
+        raise HTTPException(
+            status_code=400, detail="This document has no readable text. Choose another file."
+        )
 
     _get_analysis_session(owner_scope_id, analysis_id)
     with rag_transaction_lock:
@@ -708,7 +704,10 @@ async def upload_rag_document(
             document_store.delete(owner_scope_id, analysis_id, document.metadata.document_id)
             raise HTTPException(
                 status_code=503,
-                detail="Document indexing failed; the previous searchable version was preserved",
+                detail=(
+                    "We could not make this document searchable. Your previous version is still "
+                    "available; please try again."
+                ),
             ) from exc
         indexed = document_store.get(owner_scope_id, analysis_id, document.metadata.document_id)
     return _rag_document_response(indexed.metadata)

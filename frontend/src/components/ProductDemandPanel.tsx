@@ -73,12 +73,11 @@ export function ProductDemandPanel({
     <section className="product-demand" aria-labelledby="product-demand-heading">
       <div className="product-demand__head">
         <div>
-          <p className="eyebrow">Product demand · experimental</p>
-          <h2 id="product-demand-heading">Plan the next seven days by product</h2>
+          <p className="eyebrow">Optional · experimental planning preview</p>
+          <h2 id="product-demand-heading">Explore possible sales for the next seven days</h2>
           <p>
-            The engine evaluates each product separately and only shows a fulfilled-unit estimate
-            when its history passes the preview rules. These estimates are for exploration, not
-            restocking commitments; sparse-product reliability remains unproven.
+            We check each product’s past unit sales before showing an estimate. These numbers are
+            not restocking instructions; products with irregular sales are not reliably predicted yet.
           </p>
         </div>
         <span className="quality-badge quality-badge--limited">Preview only</span>
@@ -86,18 +85,18 @@ export function ProductDemandPanel({
 
       {!sourceDataDecisionReady ? (
         <div className="notice notice--error" role="status">
-          <strong>Product-demand forecast unavailable</strong>
+          <strong>Product estimate unavailable</strong>
           <p>
-            The source-data quality gate has restricted forecasting. Correct the quarantined CSV
-            rows and run the analysis again.
+            Some source rows need correction before we can show an estimate. Download “Excluded rows
+            and reasons” above, correct your CSV, then run the analysis again.
           </p>
         </div>
       ) : (
         <div className="product-demand__setup">
           <div>
-            <h3>Confirm the history before evaluation</h3>
+            <h3>Check what this export includes</h3>
             <p>
-              These confirmations stop missing rows from being silently interpreted as zero sales.
+              Only confirm facts you can check in your store records. Missing rows are not automatically zero sales.
             </p>
           </div>
 
@@ -213,19 +212,19 @@ export function ProductDemandPanel({
         <div className="product-demand__results" aria-live="polite">
           <div className="product-demand__summary">
             <div>
-              <span>Preview forecasts</span>
+              <span>Products with estimates</span>
               <strong>{result.preview_product_count.toLocaleString()}</strong>
             </div>
             <div>
-              <span>Unavailable products</span>
+              <span>Products without estimates</span>
               <strong>{result.unavailable_product_count.toLocaleString()}</strong>
             </div>
             <div>
-              <span>Category fallbacks</span>
+              <span>Categories with estimates</span>
               <strong>{result.preview_category_count.toLocaleString()}</strong>
             </div>
             <div>
-              <span>Required test weeks</span>
+              <span>Past test weeks required</span>
               <strong>{result.minimum_preview_test_weeks}</strong>
             </div>
           </div>
@@ -234,7 +233,7 @@ export function ProductDemandPanel({
 
           {result.dataset_explanations.length > 0 ? (
             <div className="notice notice--warning">
-              <strong>Dataset-level limitations</strong>
+              <strong>Why some estimates may be missing</strong>
               <ul>
                 {result.dataset_explanations.map((explanation) => (
                   <li key={explanation}>{explanation}</li>
@@ -245,7 +244,7 @@ export function ProductDemandPanel({
 
           {result.category_dataset_explanations.length > 0 ? (
             <div className="notice notice--warning">
-              <strong>Category fallback limitations</strong>
+              <strong>Why some category estimates may be missing</strong>
               <ul>
                 {result.category_dataset_explanations.map((explanation) => (
                   <li key={explanation}>{explanation}</li>
@@ -285,8 +284,8 @@ export function ProductDemandPanel({
           {previewCategories.length > 0 ? (
             <div className="product-demand__category-fallbacks">
               <div>
-                <p className="eyebrow">Category fallback</p>
-                <h3>Broader demand evidence</h3>
+                <p className="eyebrow">Whole-category estimate</p>
+                <h3>Estimates for groups of products</h3>
                 <p>
                   These totals apply to the whole category and are not divided among products.
                 </p>

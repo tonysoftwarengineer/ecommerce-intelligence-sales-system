@@ -243,7 +243,9 @@ def test_product_demand_endpoint_returns_analysis_lookup_errors() -> None:
     )
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "Analysis session not found"
+    assert response.json()["detail"] == (
+        "This sales analysis is not available in your current session."
+    )
 
 
 def test_product_demand_endpoint_returns_a_category_level_fallback() -> None:

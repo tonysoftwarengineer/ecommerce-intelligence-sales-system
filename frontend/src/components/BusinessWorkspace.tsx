@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   analyzeUpload,
@@ -114,12 +114,18 @@ const PAYMENT_STATUSES: Array<{ value: StandardPaymentStatus; label: string }> =
 
 interface BusinessWorkspaceProps {
   onBack: () => void;
+  sampleMode?: boolean;
 }
 
 type DistinctValuesLoadState = "idle" | "loading" | "ready" | "error";
 
-export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
-  const [savedAnalysisId] = useState(() => sessionStorage.getItem("sales-analysis-id"));
+export function BusinessWorkspace({ onBack, sampleMode = false }: BusinessWorkspaceProps) {
+  const [savedAnalysisId] = useState(() => sampleMode ? null : sessionStorage.getItem("sales-analysis-id"));
+  const [usingSample, setUsingSample] = useState(() => sampleMode || (
+    Boolean(savedAnalysisId) && sessionStorage.getItem("sales-analysis-source") === "sample"
+  ));
+  const [optionalOpen, setOptionalOpen] = useState(sampleMode);
+  const sampleLoadStarted = useRef(false);
   const [restoring, setRestoring] = useState(Boolean(savedAnalysisId));
   const [analysis, setAnalysis] = useState<GenericAnalysisResponse | null>(null);
   const [preview, setPreview] = useState<CsvPreviewResponse | null>(null);
@@ -127,8 +133,8 @@ export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
   const [revenueMode, setRevenueMode] = useState<RevenueMode>("row_total");
   const [negativePolicy, setNegativePolicy] = useState<NegativeRevenuePolicy>("invalid");
   const [dateFormat, setDateFormat] = useState("%Y-%m-%d");
-  const [currency, setCurrency] = useState("USD");
-  const [latestPeriodComplete, setLatestPeriodComplete] = useState(true);
+  const [currency, setCurrency] = useState("");
+  const [latestPeriodComplete, setLatestPeriodComplete] = useState<boolean | null>(null);
   const [assumeAllCompleted, setAssumeAllCompleted] = useState(false);
   const [statusMapping, setStatusMapping] = useState<Record<string, StandardOrderStatus>>({});
   const [paymentStatusMapping, setPaymentStatusMapping] = useState<
@@ -150,6 +156,11 @@ export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
   const [quarantineConfirmed, setQuarantineConfirmed] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const handleFileRef = useRef(handleFile);
+
+  useEffect(() => {
+    handleFileRef.current = handleFile;
+  });
 
   useEffect(() => {
     if (!savedAnalysisId) return;
@@ -170,7 +181,25 @@ export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
     };
   }, [savedAnalysisId]);
 
+  useEffect(() => {
+    if (!sampleMode || savedAnalysisId || sampleLoadStarted.current) return;
+    sampleLoadStarted.current = true;
+    setBusy("upload");
+    void fetch(`${import.meta.env.BASE_URL}demo/retailer_sales.csv`)
+      .then((response) => {
+        if (!response.ok) throw new Error("The sample file could not be loaded. Please try again.");
+        return response.blob();
+      })
+      .then((blob) => handleFileRef.current(new File([blob], "retailer_sales.csv", { type: "text/csv" }), true))
+      .catch((reason: unknown) => {
+        setError(messageFrom(reason));
+        setBusy(null);
+      });
+  }, [sampleMode, savedAnalysisId]);
+
   const activeFields = useMemo(() => fieldsForMode(revenueMode), [revenueMode]);
+  const requiredFields = activeFields.filter((field) => field.required);
+  const optionalFields = activeFields.filter((field) => !field.required);
   const dateFormatHint = useMemo(
     () => suggestDateFormat(preview, mapping.order_date),
     [preview, mapping.order_date],
@@ -209,6 +238,7 @@ export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
     return (
       <BusinessDashboard
         analysis={analysis}
+        isSample={usingSample}
         onBack={onBack}
         onNewDataset={() => resetWorkspace(analysis.analysis_id)}
         onCurrencyChange={(selectedCurrency) => switchCurrency(analysis.analysis_id, selectedCurrency)}
@@ -216,12 +246,14 @@ export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
     );
   }
 
-  async function handleFile(file: File) {
+  async function handleFile(file: File, sample = false) {
     setBusy("upload");
     setError(null);
     if (preview) void deleteUpload(preview.upload_id).catch(() => undefined);
     try {
       const result = await uploadCsv(file);
+      setUsingSample(sample);
+      setOptionalOpen(sample);
       const initialRevenueMode: RevenueMode = "row_total";
       setPreview(result);
       setRevenueMode(initialRevenueMode);
@@ -234,8 +266,9 @@ export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
       setDistinctValuesLoadState("idle");
       setNegativePolicy("invalid");
       setDateFormat("%Y-%m-%d");
-      setLatestPeriodComplete(true);
-      setStatusMapping({});
+      setCurrency(sample ? "NGN" : "");
+      setLatestPeriodComplete(sample ? true : null);
+      setStatusMapping(sample ? { Completed: "completed" } : {});
       setPaymentStatusMapping({});
       setAssumeAllCompleted(false);
       setDiscountType("none");
@@ -364,9 +397,11 @@ export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
       const result = await analyzeUpload(
         configuration,
         quarantineConfirmed,
-        latestPeriodComplete,
+        latestPeriodComplete === true,
       );
       sessionStorage.setItem("sales-analysis-id", result.analysis_id);
+      if (usingSample) sessionStorage.setItem("sales-analysis-source", "sample");
+      else sessionStorage.removeItem("sales-analysis-source");
       setAnalysis(result);
       void deleteUpload(configuration.upload_id).catch((cleanupError) => {
         console.warn("Temporary upload cleanup failed; server TTL still applies", cleanupError);
@@ -380,7 +415,9 @@ export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
 
   function resetWorkspace(analysisId: string) {
     sessionStorage.removeItem("sales-analysis-id");
+    sessionStorage.removeItem("sales-analysis-source");
     setAnalysis(null);
+    setUsingSample(false);
     setPreview(null);
     setMapping({});
     setMappingResult(null);
@@ -411,13 +448,20 @@ export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
       <header className="wizard-header">
         <button type="button" className="icon-button" onClick={onBack} aria-label="Back to data sources">←</button>
         <div>
-          <p className="eyebrow">Online retail focus · flexible CSV mapping</p>
-          <h1>Build a trustworthy sales dashboard</h1>
+          <p className="eyebrow">Sales analysis for online retailers</p>
+          <h1>Understand your sales</h1>
         </div>
         <span className="chip">Private · temporary processing</span>
       </header>
 
       <StepRail current={currentStep} />
+
+      {usingSample ? (
+        <div className="notice notice--sample" role="status">
+          <strong>Fictional sample: Harbor Home</strong>
+          <p>These settings describe the sample file only. Review them before continuing; they will not be used for your own CSV.</p>
+        </div>
+      ) : null}
 
       {error ? <div className="notice notice--error" role="alert">{error}</div> : null}
 
@@ -430,8 +474,8 @@ export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
             <section className="setup-card">
               <SectionHeading
                 number="02"
-                title="Define what your data means"
-                copy="Suggested matches are only a starting point. Review every required field before validation."
+                title="Match your CSV columns"
+                copy="Check the required matches first. Suggested columns are a starting point, not a confirmation of what your business records mean."
               />
 
               <div className="form-section">
@@ -463,13 +507,13 @@ export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
 
               {mappingSuggestions ? (
                 <aside className="notice notice--warning">
-                  <strong>Mapping assistant recommendation</strong>
+                  <strong>Suggested column matches</strong>
                   <p>
                     {mappingSuggestions.recommended_revenue_mode === "unit_price_times_quantity"
                       ? "This file appears to contain unit price and quantity, so price × quantity is recommended."
                       : "Review the suggested field matches before continuing."}
                   </p>
-                  <p>{mappingSuggestions.candidates.length} explainable column match(es) are ready to review.</p>
+                  <p>Use the suggestions only if they match your export. You can change each field below.</p>
                   <ul className="mapping-assistant-notes">
                     {mappingSuggestions.warnings.map((warning) => <li key={warning}>{warning}</li>)}
                   </ul>
@@ -505,11 +549,11 @@ export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
               ) : null}
 
               <div className="mapping-list">
-                {activeFields.map((field) => (
+                {requiredFields.map((field) => (
                   <label className="mapping-row" key={field.key}>
                     <span>
                       <strong>{FIELD_LABELS[field.key]}</strong>
-                      <small>{field.required ? "Required" : "Optional"}</small>
+                      <small>Required for sales analysis</small>
                     </span>
                     <select
                       value={mapping[field.key] ?? ""}
@@ -524,9 +568,30 @@ export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
                 ))}
               </div>
 
+              <details className="optional-mappings" open={optionalOpen} onToggle={(event) => setOptionalOpen(event.currentTarget.open)}>
+                <summary>More columns ({optionalFields.filter((field) => mapping[field.key]).length} selected)</summary>
+                <p>Optional columns add product, location, refund, or payment detail. Leave a field unmapped if your file does not contain it.</p>
+                <div className="mapping-list">
+                  {optionalFields.map((field) => (
+                    <label className="mapping-row" key={field.key}>
+                      <span><strong>{FIELD_LABELS[field.key]}</strong><small>Optional</small></span>
+                      <select
+                        value={mapping[field.key] ?? ""}
+                        onChange={(event) => handleMapping(field.key, event.target.value)}
+                      >
+                        <option value="">Do not map</option>
+                        {preview.columns.map((column) => (
+                          <option value={column} key={column}>{column}</option>
+                        ))}
+                      </select>
+                    </label>
+                  ))}
+                </div>
+              </details>
+
               <div className="settings-grid">
                 <label className="field">
-                  <span className="form-label">Confirmed date format</span>
+                  <span className="form-label">How are dates written?</span>
                   <select
                     value={DATE_FORMATS.some((option) => option.value === dateFormat) ? dateFormat : "custom"}
                     onChange={(event) => {
@@ -549,7 +614,7 @@ export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
                       placeholder="e.g. %d.%m.%Y"
                     />
                   ) : null}
-                  {dateFormatHint ? <small>{dateFormatHint}</small> : null}
+                  {dateFormatHint ? <small>{dateFormatHint} Check it against your CSV before continuing.</small> : null}
                 </label>
                 <label className="field">
                   <span className="form-label">Currency</span>
@@ -562,7 +627,7 @@ export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
                     }}
                     placeholder="USD"
                   />
-                  <small>Three-letter ISO code, for example NGN or GBP</small>
+                  <small>Required. Enter the currency used by these sales, for example NGN or GBP. If rows use different currencies, map the row-currency column above.</small>
                 </label>
               </div>
 
@@ -572,7 +637,7 @@ export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
                   <Radio
                     name="negative-policy"
                     checked={negativePolicy === "invalid"}
-                    label="Invalid rows — quarantine them"
+                    label="Exclude negative-value rows and show why"
                     onChange={() => {
                       setNegativePolicy("invalid");
                       invalidateReview();
@@ -581,7 +646,7 @@ export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
                   <Radio
                     name="negative-policy"
                     checked={negativePolicy === "refunds"}
-                    label="Refunds — include them in net revenue"
+                    label="Treat negative values as refunds"
                     onChange={() => {
                       setNegativePolicy("refunds");
                       invalidateReview();
@@ -589,25 +654,32 @@ export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
                   />
                 </fieldset>
                 <fieldset className="field fieldset-reset">
-                  <legend className="form-label">Is the latest month complete?</legend>
+                  <legend className="form-label">Is the most recent month fully recorded?</legend>
+                  <small>Check your export date and whether all orders have arrived. Dates alone cannot prove the file is complete. If unsure, we will show its recorded sales but leave it out of month-to-month comparisons and forecasting.</small>
                   <Radio
                     name="latest-period"
-                    checked={latestPeriodComplete}
-                    label="Yes — include it in forecasting"
+                    checked={latestPeriodComplete === true}
+                    label="Yes — use it in comparisons and forecasting"
                     onChange={() => setLatestPeriodComplete(true)}
                   />
                   <Radio
                     name="latest-period"
-                    checked={!latestPeriodComplete}
-                    label="No — exclude it from forecasting"
+                    checked={latestPeriodComplete === false}
+                    label="No — keep it visible, but leave it out of comparisons and forecasting"
                     onChange={() => setLatestPeriodComplete(false)}
+                  />
+                  <Radio
+                    name="latest-period"
+                    checked={latestPeriodComplete === null}
+                    label="I don't know — use the safer exclusion"
+                    onChange={() => setLatestPeriodComplete(null)}
                   />
                 </fieldset>
               </div>
 
               <div className="section-actions">
                 <button type="button" className="button" disabled={Boolean(busy)} onClick={handleValidateMapping}>
-                  {busy === "mapping" ? "Checking mapping…" : "Validate mapping"}
+                  {busy === "mapping" ? "Checking columns…" : "Check column matches"}
                 </button>
               </div>
 
@@ -617,8 +689,8 @@ export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
                 <div className="rules-panel">
                   <div className="rules-panel__head">
                     <div>
-                      <span className="form-label">Retail recognition rules</span>
-                      <p>Confirm how operational values affect revenue. Nothing is guessed silently.</p>
+                      <span className="form-label">Confirm which orders count as sales</span>
+                      <p>These choices determine which rows count toward sales and refunds. Check your store records if you are unsure.</p>
                     </div>
                   </div>
 
@@ -670,8 +742,8 @@ export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
                         }}
                       />
                       <span>
-                        <strong>Confirm every row is a completed sale</strong>
-                        No order-status column is mapped. Without this confirmation, revenue recognition is blocked.
+                        <strong>Every row is a completed sale</strong>
+                        Tick only if you checked your export and know this is true. If you do not know, add or map an order-status column before calculating sales.
                       </span>
                     </label>
                   )}
@@ -832,8 +904,8 @@ export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
               <section className="setup-card">
                 <SectionHeading
                   number="03"
-                  title="Verify data quality"
-                  copy="We test every mapped value before calculations. Invalid rows stay visible and traceable."
+                  title="Check your sales rows"
+                  copy="We check the values before calculating sales. Rows we cannot use stay visible with reasons to fix them."
                 />
                 {!validation ? (
                   <div className="section-actions section-actions--start">
@@ -843,7 +915,7 @@ export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
                       disabled={Boolean(busy) || !statusValuesReady}
                       onClick={handleValidateData}
                     >
-                      {busy === "validation" ? "Validating every row…" : "Validate data"}
+                      {busy === "validation" ? "Checking every row…" : "Check sales rows"}
                     </button>
                   </div>
                 ) : (
@@ -862,7 +934,7 @@ export function BusinessWorkspace({ onBack }: BusinessWorkspaceProps) {
                       disabled={Boolean(busy) || (validation.requires_confirmation && !quarantineConfirmed)}
                       onClick={handleAnalyze}
                     >
-                      {busy === "analysis" ? "Building dashboard…" : "Generate intelligence dashboard"}
+                      {busy === "analysis" ? "Building dashboard…" : "See sales dashboard"}
                     </button>
                   </div>
                 ) : null}
@@ -889,8 +961,8 @@ function UploadPanel({ busy, onFile }: { busy: boolean; onFile: (file: File) => 
     <section className="upload-stage">
       <SectionHeading
         number="01"
-        title="Upload transaction data"
-        copy="Start with an order export containing order, date, customer, and revenue information. Other sales CSVs can use the same mapping flow when these meanings are present."
+        title="Upload your sales CSV"
+        copy="Export your orders as a CSV. It should include an order ID, date, customer ID, and enough information to calculate sales. We will help you match the columns next."
       />
       <label
         className={`dropzone${dragging ? " dropzone--active" : ""}`}
@@ -920,8 +992,8 @@ function UploadPanel({ busy, onFile }: { busy: boolean; onFile: (file: File) => 
         <span>or click to choose a file · maximum 10 MiB</span>
       </label>
       <div className="upload-requirements">
-        <span>Required meanings: order, date, customer, revenue</span>
-        <span>Optional: product/SKU, quantity, unit, category, region</span>
+        <span>Needed for sales: order ID, date, customer ID, and sales amount or price × quantity</span>
+        <span>Useful extras: product code, quantity, unit, category, and region</span>
       </div>
     </section>
   );
@@ -932,7 +1004,7 @@ function PreviewPanel({ preview, onReplace }: { preview: CsvPreviewResponse; onR
     <section className="setup-card preview-card">
       <div className="preview-card__head">
         <div>
-          <p className="eyebrow">Upload received</p>
+          <p className="eyebrow">File received</p>
           <h2>{preview.filename}</h2>
           <p>{preview.row_count.toLocaleString()} rows · {preview.column_count} columns</p>
         </div>
@@ -961,7 +1033,7 @@ function PreviewPanel({ preview, onReplace }: { preview: CsvPreviewResponse; onR
           </tbody>
         </table>
       </div>
-      <p className="preview-card__note">Preview shows the first five rows. Direct personal identifiers are masked; business IDs such as “001” remain text.</p>
+      <p className="preview-card__note">Showing the first five rows. Direct personal details are masked; business IDs stay as text.</p>
     </section>
   );
 }
@@ -1081,7 +1153,7 @@ function MappingResult({ result, revenueMode }: { result: SchemaMappingResponse;
     : null;
   return (
     <div className={`notice ${result.valid ? "notice--success" : "notice--error"}`}>
-      <strong>{result.valid ? "Mapping is valid" : "Mapping needs attention"}</strong>
+      <strong>{result.valid ? "Column matches look good" : "Check these column matches"}</strong>
       {[...result.errors, ...result.warnings].map((message) => <p key={message}>{message}</p>)}
       {revenueHint ? <p><strong>What to do:</strong> {revenueHint}</p> : null}
       {revenueHint && revenueCandidate ? (
@@ -1103,13 +1175,13 @@ function ValidationResult({ validation, confirmed, onConfirm }: { validation: Da
   return (
     <div className="validation-result">
       <div className="validation-stats">
-        <div><span>Total rows</span><strong>{validation.total_rows.toLocaleString()}</strong></div>
-        <div><span>Valid rows</span><strong className="text-positive">{validation.valid_rows.toLocaleString()}</strong></div>
-        <div><span>Invalid rows</span><strong className={validation.invalid_rows ? "text-warning" : "text-positive"}>{validation.invalid_rows.toLocaleString()}</strong></div>
+        <div><span>Rows in file</span><strong>{validation.total_rows.toLocaleString()}</strong></div>
+        <div><span>Accepted rows</span><strong className="text-positive">{validation.valid_rows.toLocaleString()}</strong></div>
+        <div><span>Excluded rows</span><strong className={validation.invalid_rows ? "text-warning" : "text-positive"}>{validation.invalid_rows.toLocaleString()}</strong></div>
       </div>
       <div className={`data-quality-summary data-quality-summary--${quality.status}`} role="status">
         <div>
-          <span className="data-quality-summary__label">Data readiness</span>
+          <span className="data-quality-summary__label">Can these figures be used?</span>
           <strong>{dataQualityLabel(quality.status)}</strong>
         </div>
         <span>{quality.invalid_row_percentage.toFixed(1)}% invalid</span>
@@ -1139,7 +1211,7 @@ function ValidationResult({ validation, confirmed, onConfirm }: { validation: Da
       {validation.requires_confirmation ? (
         <label className="confirmation-box">
           <input type="checkbox" checked={confirmed} onChange={(event) => onConfirm(event.target.checked)} />
-          <span><strong>Quarantine {validation.invalid_rows.toLocaleString()} invalid rows</strong>They will be excluded from calculations and preserved in a downloadable audit file.</span>
+          <span><strong>Continue without {validation.invalid_rows.toLocaleString()} excluded {validation.invalid_rows === 1 ? "row" : "rows"}</strong>They will not affect the totals. You can download them with their reasons from the dashboard.</span>
         </label>
       ) : null}
     </div>

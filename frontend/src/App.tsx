@@ -3,11 +3,8 @@ import { lazy, Suspense, useState } from "react";
 import "./App.css";
 import { SourceSelection } from "./components/SourceSelection";
 
-type View = "sources" | "olist" | "upload";
+type View = "sources" | "upload" | "sample";
 
-const OlistDashboard = lazy(() =>
-  import("./components/OlistDashboard").then((module) => ({ default: module.OlistDashboard })),
-);
 const BusinessWorkspace = lazy(() =>
   import("./components/BusinessWorkspace").then((module) => ({
     default: module.BusinessWorkspace,
@@ -19,25 +16,25 @@ function App() {
     sessionStorage.getItem("sales-analysis-id") ? "upload" : "sources",
   );
 
-  if (view === "olist") {
+  if (view === "upload" || view === "sample") {
     return (
       <Suspense fallback={<LoadingFeature />}>
-        <OlistDashboard onBack={() => setView("sources")} />
-      </Suspense>
-    );
-  }
-  if (view === "upload") {
-    return (
-      <Suspense fallback={<LoadingFeature />}>
-        <BusinessWorkspace onBack={() => setView("sources")} />
+        <BusinessWorkspace onBack={() => setView("sources")} sampleMode={view === "sample"} />
       </Suspense>
     );
   }
 
   return (
     <SourceSelection
-      onSelectOlist={() => setView("olist")}
-      onSelectUpload={() => setView("upload")}
+      onSelectUpload={() => {
+        sessionStorage.removeItem("sales-analysis-id");
+        sessionStorage.removeItem("sales-analysis-source");
+        setView("upload");
+      }}
+      onSelectSample={() => {
+        sessionStorage.removeItem("sales-analysis-id");
+        setView("sample");
+      }}
     />
   );
 }

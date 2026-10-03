@@ -15,6 +15,7 @@ import { Sparkline } from "./Sparkline";
 
 interface BusinessDashboardProps {
   analysis: GenericAnalysisResponse;
+  isSample?: boolean;
   onBack: () => void;
   onNewDataset: () => void;
   onCurrencyChange: (currency: string) => void;
@@ -22,6 +23,7 @@ interface BusinessDashboardProps {
 
 export function BusinessDashboard({
   analysis,
+  isSample = false,
   onBack,
   onNewDataset,
   onCurrencyChange,
@@ -45,7 +47,7 @@ export function BusinessDashboard({
   return (
     <div className="page">
       <DashboardHeader
-        title="Your Sales Intelligence"
+        title={isSample ? "Harbor Home · sample sales" : "Your sales dashboard"}
         period={period}
         context={`${analysis.currency} · ${analysis.canonical_rows.toLocaleString()} valid rows`}
         onBack={onBack}
@@ -65,7 +67,7 @@ export function BusinessDashboard({
               </label>
             ) : null}
             <button type="button" className="button button--small" onClick={onNewDataset}>
-              New dataset
+              Analyze another CSV
             </button>
           </div>
         }
@@ -73,10 +75,11 @@ export function BusinessDashboard({
 
       <div className="analysis-strip" role="status">
         <span className="analysis-strip__file">{analysis.filename}</span>
-        <span>{analysis.source_rows.toLocaleString()} source rows</span>
+        <span>{analysis.source_rows.toLocaleString()} rows in file</span>
         <span className={analysis.quarantined_rows ? "text-warning" : "text-positive"}>
-          {analysis.quarantined_rows.toLocaleString()} quarantined
+          {analysis.quarantined_rows.toLocaleString()} excluded
         </span>
+        {isSample ? <span className="text-warning">Fictional sample data · not business evidence</span> : null}
         <span>Session expires {formatExpiry(analysis.expires_at)}</span>
       </div>
 
@@ -106,18 +109,6 @@ export function BusinessDashboard({
       </section>
 
       <section className="stagger" style={{ "--i": 2 } as React.CSSProperties}>
-        <ProductDemandPanel
-          analysisId={analysis.analysis_id}
-          sourceDataDecisionReady={analysis.data_quality.decision_ready}
-          hasProductCategories={analysis.capabilities.category_analysis}
-        />
-      </section>
-
-      <section className="stagger" style={{ "--i": 3 } as React.CSSProperties}>
-        <EvidenceSearchPanel analysisId={analysis.analysis_id} />
-      </section>
-
-      <section className="stagger" style={{ "--i": 4 } as React.CSSProperties}>
         <RevenueChart
           months={months}
           forecast={analysis.forecast.forecast}
@@ -127,7 +118,7 @@ export function BusinessDashboard({
         />
       </section>
 
-      <section className="grid stagger" style={{ "--i": 5 } as React.CSSProperties}>
+      <section className="grid stagger" style={{ "--i": 3 } as React.CSSProperties}>
         {analysis.capabilities.category_analysis ? (
           <BreakdownBarChart
             title="Top Categories"
@@ -165,33 +156,26 @@ export function BusinessDashboard({
         )}
       </section>
 
-      <section className="grid stagger" style={{ "--i": 6 } as React.CSSProperties}>
+      <section className="grid stagger" style={{ "--i": 4 } as React.CSSProperties}>
         <TopBusinessCustomers customers={analysis.top_customers} formatValue={money} />
         <FinancialIntegrity analysis={analysis} formatValue={money} />
       </section>
 
-      <section className="grid stagger" style={{ "--i": 7 } as React.CSSProperties}>
+      <section className="grid stagger" style={{ "--i": 5 } as React.CSSProperties}>
         <ForecastEvidence analysis={analysis} formatValue={money} />
         <OperationalSignals analysis={analysis} formatValue={money} />
       </section>
 
-      <section className="delivery-card stagger" style={{ "--i": 8 } as React.CSSProperties}>
-        <div>
-          <p className="eyebrow">Audit-ready outputs</p>
-          <h3>Take the processed data with you</h3>
-          <p>
-            The canonical file contains accepted rows. The quarantine file preserves rejected rows
-            and their reasons, so no data-quality decision is hidden.
-          </p>
-        </div>
-        <div className="delivery-card__actions">
-          <a className="button" href={downloadUrl(analysis.downloads.canonical_csv)} download>
-            Download canonical CSV
-          </a>
-          <a className="button button--secondary" href={downloadUrl(analysis.downloads.quarantine_csv)} download>
-            Download quarantine CSV
-          </a>
-        </div>
+      <section className="stagger" style={{ "--i": 6 } as React.CSSProperties}>
+        <ProductDemandPanel
+          analysisId={analysis.analysis_id}
+          sourceDataDecisionReady={analysis.data_quality.decision_ready}
+          hasProductCategories={analysis.capabilities.category_analysis}
+        />
+      </section>
+
+      <section className="stagger" style={{ "--i": 7 } as React.CSSProperties}>
+        <EvidenceSearchPanel analysisId={analysis.analysis_id} isSample={isSample} />
       </section>
 
       {analysis.warnings.length > 0 ? (
@@ -207,36 +191,39 @@ export function BusinessDashboard({
 function forecastDescription(analysis: GenericAnalysisResponse): string {
   const forecast = analysis.forecast;
   if (analysis.data_quality.preview_only) {
-    return "Preview only · forecast not calculated because source-data quality is too low";
+    return "Preview only · the data check did not allow a forecast";
   }
   if (forecast.status === "unavailable") {
-    return `Historical trend · forecast unavailable with ${forecast.history_periods} complete months`;
+    return `Past sales only · ${forecast.history_periods} complete months were not enough for a forecast`;
   }
-  const label = forecast.status === "experimental" ? "Experimental" : "Backtested";
-  return `${label} ${forecast.horizon}-month forecast · chosen after comparing eligible methods: ${modelLabel(forecast.selected_model)}`;
+  const label = forecast.status === "experimental" ? "Experimental" : "Historically tested";
+  return `${label} ${forecast.horizon}-month estimate · not a guarantee of future sales`;
 }
 
 function DataQualityPanel({ analysis }: { analysis: GenericAnalysisResponse }) {
   const quality = analysis.data_quality;
-  if (quality.status === "normal" && quality.correction_actions.length === 0) {
-    return null;
-  }
   const heading = quality.preview_only
-    ? "Preview Mode — correct the CSV before making decisions"
+    ? "Preview only — check your CSV before making decisions"
     : quality.status === "caution"
-      ? "Data-quality caution"
-      : "Data-quality note";
+      ? "Some rows need attention"
+      : "What data was used";
   return (
     <section className={`data-quality-panel data-quality-panel--${quality.status}`} aria-labelledby="data-quality-heading">
       <div className="data-quality-panel__head">
         <div>
-          <p className="eyebrow">Source-data reliability</p>
+          <p className="eyebrow">Data check</p>
           <h2 id="data-quality-heading">{heading}</h2>
         </div>
         <span className={`quality-badge quality-badge--${quality.status}`}>
-          {quality.invalid_row_percentage.toFixed(1)}% invalid
+          {quality.invalid_row_percentage.toFixed(1)}% excluded
         </span>
       </div>
+      <p>
+        {rowCount(analysis.canonical_rows, "accepted row")}{" "}
+        {analysis.canonical_rows === 1 ? "was" : "were"} used;{" "}
+        {rowCount(analysis.quarantined_rows, "row")}{" "}
+        {analysis.quarantined_rows === 1 ? "was" : "were"} excluded.
+      </p>
       <p>{quality.message}</p>
       {quality.restricted_outputs.length > 0 ? (
         <p className="data-quality-panel__restriction">
@@ -262,10 +249,20 @@ function DataQualityPanel({ analysis }: { analysis: GenericAnalysisResponse }) {
             ))}
           </ul>
           <a className="button button--secondary" href={downloadUrl(analysis.downloads.quarantine_csv)} download>
-            Download rows to correct
+            Excluded rows and reasons
           </a>
         </div>
       ) : null}
+      <div className="data-quality-panel__downloads">
+        <a className="button button--secondary" href={downloadUrl(analysis.downloads.canonical_csv)} download>
+          Accepted sales rows
+        </a>
+        {quality.correction_actions.length === 0 ? (
+          <a className="button button--secondary" href={downloadUrl(analysis.downloads.quarantine_csv)} download>
+            Excluded rows and reasons
+          </a>
+        ) : null}
+      </div>
     </section>
   );
 }
@@ -358,7 +355,7 @@ function FinancialIntegrity({
     <div className="card evidence-card">
       <div className="card__head">
         <div>
-          <h3 className="card__title">Revenue Bridge</h3>
+          <h3 className="card__title">How net revenue is calculated</h3>
           <p className="card__sub">How gross sales become recognized net revenue</p>
         </div>
         <span className="quality-badge quality-badge--available">reconciled</span>
@@ -373,7 +370,7 @@ function FinancialIntegrity({
         <Metric label="Net revenue" value={formatValue(kpis.net_revenue)} />
       </div>
       <p className="empty-state__copy">
-        Tax and shipping stay separate from revenue, preserving a clear operational audit trail.
+        Tax and shipping are shown separately; they are not included in these revenue figures.
       </p>
     </div>
   );
@@ -391,7 +388,7 @@ function OperationalSignals({
     <div className="card evidence-card">
       <div className="card__head">
         <div>
-          <h3 className="card__title">Operational Signals</h3>
+          <h3 className="card__title">Other sales and payment figures</h3>
           <p className="card__sub">Amounts kept outside recognized sales</p>
         </div>
       </div>
@@ -435,8 +432,8 @@ function ForecastEvidence({
     <div className="card evidence-card">
       <div className="card__head">
         <div>
-          <h3 className="card__title">Forecast Evidence</h3>
-          <p className="card__sub">How the forecast was chosen and how much confidence it deserves</p>
+          <h3 className="card__title">About the revenue estimate</h3>
+          <p className="card__sub">See the warning first; open the details to inspect the historical tests.</p>
         </div>
         <div className="forecast-badges">
           <span className={`quality-badge quality-badge--${trustLevel}`}>
@@ -451,25 +448,25 @@ function ForecastEvidence({
           <p className="empty-state__copy">
             {trustMessage}
           </p>
-          <div className="evidence-grid">
-            <Metric label="Chosen method" value={modelLabel(forecast.selected_model)} />
-            <Metric label="Rolling tests" value={forecast.backtest_folds.toString()} />
-            <Metric label="Mean error" value={formatValue(forecast.backtest_metrics.mae)} />
-            <Metric
-              label="WAPE"
-              value={
-                forecast.backtest_metrics.wape_percent === null
-                  ? "Not defined"
-                  : `${forecast.backtest_metrics.wape_percent.toFixed(1)}%`
-              }
-            />
-          </div>
-          {forecast.selection_reason ? (
-            <p className="forecast-selection-reason"><strong>Why this method:</strong> {forecast.selection_reason}</p>
-          ) : null}
-          {modelEvaluations.length > 0 ? (
-            <div className="forecast-comparison">
-              <p className="forecast-comparison__title">Methods tested</p>
+          <details className="forecast-comparison">
+            <summary>How this estimate was tested</summary>
+            <div className="evidence-grid">
+              <Metric label="Chosen method" value={modelLabel(forecast.selected_model)} />
+              <Metric label="Rolling tests" value={forecast.backtest_folds.toString()} />
+              <Metric label="Mean error" value={formatValue(forecast.backtest_metrics.mae)} />
+              <Metric
+                label="WAPE"
+                value={
+                  forecast.backtest_metrics.wape_percent === null
+                    ? "Not defined"
+                    : `${forecast.backtest_metrics.wape_percent.toFixed(1)}%`
+                }
+              />
+            </div>
+            {forecast.selection_reason ? (
+              <p className="forecast-selection-reason"><strong>Why this method:</strong> {forecast.selection_reason}</p>
+            ) : null}
+            {modelEvaluations.length > 0 ? (
               <div className="forecast-comparison__table-wrap">
                 <table>
                   <thead>
@@ -496,8 +493,8 @@ function ForecastEvidence({
                   </tbody>
                 </table>
               </div>
-            </div>
-          ) : null}
+            ) : null}
+          </details>
         </>
       ) : (
         <p className="empty-state__copy">{trustMessage}</p>
@@ -514,6 +511,10 @@ function ForecastEvidence({
       ) : null}
     </div>
   );
+}
+
+function rowCount(count: number, noun: string): string {
+  return `${count.toLocaleString()} ${noun}${count === 1 ? "" : "s"}`;
 }
 
 function legacyTrustLevel(status: GenericAnalysisResponse["forecast"]["status"]): string {

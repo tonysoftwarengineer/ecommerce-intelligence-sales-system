@@ -173,7 +173,9 @@ def test_invalid_mapping_configuration_is_rejected_before_source_processing() ->
     }
 
     config = independent_evaluation_config_from_dict(config_payload)
-    with pytest.raises(IndependentEvaluationConfigError, match="Missing required mappings"):
+    with pytest.raises(
+        IndependentEvaluationConfigError, match="Choose a CSV column for each required field"
+    ):
         run_independent_evaluation(_sales([1] * 245), config)
 
 
