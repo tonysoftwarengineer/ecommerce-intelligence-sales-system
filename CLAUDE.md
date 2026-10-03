@@ -33,7 +33,7 @@ When updating, keep these headings and replace only the factual content beneath 
 
 ### Updater and date
 
-Claude Code — 2026-10-03 (Phase 2 Stage A complete: guided sample retailer, Olist removed from the live app)
+Claude Code — 2026-10-04 (pre-testing hardening: answer quota protection, upload concurrency fix, tester feedback)
 
 ### Completed phase
 
@@ -103,6 +103,17 @@ API no longer downloads the Olist dataset at startup or serves `/report`, `/fore
 `/segments`; `/health` returns `{"status": "ok"}`. The Olist research code and its unit tests
 remain for Stage B.
 
+Pre-testing hardening is complete (user-approved order; commits dec59bb, a9750c8, 80ef5d9):
+- AI answer quota: an app-wide daily budget (`RAG_ANSWER_DAILY_BUDGET`, default 100 per UTC day)
+  plus a verified-answer cache (`api/rag_answer_cache.py`). See ADR-015 for the key design: chunk
+  IDs embed per-upload document IDs, so the key replaces them with positions; cached answers are
+  remapped and re-verified. No automatic provider fallback (user decision).
+- CSV parsing and document indexing run in worker threads (`run_in_threadpool`) so one upload no
+  longer blocks the event loop for every visitor.
+- Tester feedback: a "Give feedback" footer link to `.github/ISSUE_TEMPLATE/feedback.yml` (public;
+  warns against private data) and per-answer Helpful / Not helpful votes counted in the
+  content-free answer metrics.
+
 ### Changed areas
 
 - The generic business workflow remains: CSV upload, explicit mapping, validation and quarantine,
@@ -166,6 +177,16 @@ remain for Stage B.
   and bare `pytest -q -m "not integration"` (487 passed, 4 deselected) pass. Commit 02d8b92 alone
   fails 13 evaluation tests because it captured mid-edit test/script files; 3f5ba47 completes it.
   History was deliberately left unrewritten.
+- Pre-testing hardening: GitHub Actions run 37159029027 on 80ef5d9 passed all four jobs. Locally:
+  ruff, format, mypy, 503 backend tests, tsc, lint, build, and all 8 Playwright journeys against
+  freshly started servers. The two concurrency tests were run against the previous commit and
+  failed there (`['upload', 'health']`), proving they detect the bug; a first wall-clock version
+  passed on the broken code too and was replaced.
+- Correction: local Playwright runs reused any server already on port 8000, and a stale Python 3.9
+  server from an earlier session was answering, so local browser results reported between
+  2026-10-03 20:51 and the fix exercised old backend code. CI always starts fresh servers and was
+  unaffected. `frontend/playwright.config.ts` now never reuses a server unless
+  `E2E_REUSE_SERVER=1`; a busy port fails loudly.
 - Phase 2 Stage A: GitHub Actions run 37155017748 on da4f757 passed all four jobs; in the `docker`
   job the container answered `/api/v1/health` on its second 5-second check (it had taken 463 s
   locally while downloading Olist). Locally: ruff, format, mypy, `pytest -q -m "not
@@ -261,6 +282,9 @@ remain for Stage B.
   `src/stages`, `src/models`, `src/ingest.py`, `src/pipeline.py` with their unit tests. None is
   reachable from the live app. `AGENTS.md` and the README's "What it does" section still
   describe Olist as a benchmark; the README now labels it offline.
+- The answer cache, daily budget, and feedback counts are process-local: they reset on restart and
+  are not shared across replicas. Feedback votes are visible only via the token-guarded
+  observability endpoint; written feedback lives in public GitHub issues.
 - Validation errors render at the top of the workspace, far from the button the user clicked,
   so on a long page an error can look like nothing happened. Noted, not changed.
 - Starlette 1.7 warns that its test client will move from `httpx` to `httpx2` (test-only).
@@ -283,23 +307,33 @@ remain for Stage B.
    remove the now-unused `integration` pytest marker, update `AGENTS.md` (it calls Olist a fixed
    demo and benchmark) and add an ADR, since this changes a documented boundary. Rewrite the
    README's "What it does" around the product, keeping the Olist results only as history.
-2. **Phase 2 deploy.** One replica only (stores are process-local). Set `GUEST_COOKIE_SECURE=true`,
+2. **UI redesign (design with the user first).** About 60 font sizes are 0.65-0.72rem
+   (~10-11.5 px) and `--text-muted` is white at 38% opacity; there is no navigation. Plan: sidebar
+   navigation between dashboard sections, a type scale with a 12-13 px floor and readable
+   contrast, and a collapsible mobile nav. Re-run all Playwright journeys plus phone-width and
+   keyboard checks.
+3. **Phase 2 deploy.** One replica only (stores are process-local). Set `GUEST_COOKIE_SECURE=true`,
    exact `CORS_ORIGINS`, keep `DEVELOPMENT_OBSERVABILITY_ENABLED` off, and verify the guest-session
    cookie works when frontend and API are on different domains. Hosting choice and any paid tier
    are the user's decisions. Then the README rewrite: one-line pitch, live link, short demo video,
    architecture diagram, results table including the failed sparse stratum, honest limitations.
-3. Embedding-stack upgrade (`sentence-transformers`/`transformers`, review `chromadb`) as its own
+4. **PDF/HTML document support** as its own phase with an ADR: text extraction only (no OCR),
+   strip HTML scripts and hidden elements (prompt-injection risk), size/page caps, parser CVE
+   review, and an evaluation set with real PDFs before claiming support (AGENTS.md rule).
+5. **AI explanation of the Python calculations** (later, own ADR): the model may only narrate
+   numbers the code produced, each cited and verified by exact match; it never calculates.
+6. Embedding-stack upgrade (`sentence-transformers`/`transformers`, review `chromadb`) as its own
    phase, with the frozen retrieval benchmark before and after; clears most remaining findings.
-4. Consider bumping the GitHub Actions versions to clear the Node 20 deprecation warnings.
-5. Obtain and safely prepare a permissioned, anonymized independent-retailer export, then run the
+7. Consider bumping the GitHub Actions versions to clear the Node 20 deprecation warnings.
+8. Obtain and safely prepare a permissioned, anonymized independent-retailer export, then run the
    existing offline evaluator without changing forecast policy after seeing its results.
-6. Propose an offline development-reference audit of alternate passages supporting
+9. Propose an offline development-reference audit of alternate passages supporting
    the same fact, with explicit scope/exception checks. Keep current scores and locked
    references unchanged; version any later scoring change separately. Investigate
    transport reliability and the undiagnosed Groq `400` with bounded diagnostics before
    another provider run. Do not switch models or add hybrid retrieval just to raise
    coverage. Stability/locked runs remain blocked pending complete development evidence.
-7. Treat any cold-start forecasting improvement as a separate user-approved design and evaluation
+10. Treat any cold-start forecasting improvement as a separate user-approved design and evaluation
    phase; do not loosen the live preview rules merely to increase coverage.
 
 ### Decisions requiring the user
