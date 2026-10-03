@@ -33,7 +33,7 @@ When updating, keep these headings and replace only the factual content beneath 
 
 ### Updater and date
 
-Claude Code — 2026-10-03 (Python 3.12 upgrade and CI image check complete; Phase 2 handed to Codex)
+Claude Code — 2026-10-03 (Phase 2 Stage A complete: guided sample retailer, Olist removed from the live app)
 
 ### Completed phase
 
@@ -93,7 +93,15 @@ The Python runtime upgrade is complete ([ADR-016](docs/architecture/ADR-016-pyth
 commits 0676dda, 315bd5d): Python 3.12 everywhere, a `constraints.txt` lock of all 120 packages
 used by Docker, CI, and `pip-audit`, CPU-only `torch`, and FastAPI 0.141.1 / Starlette 1.7.0.
 Known Python vulnerabilities fell from 57 to 11. CI now also builds and smoke-tests the
-production image (commit 327a0d0). All pre-deploy hardening is done; Phase 2 is next.
+production image (commit 327a0d0). All pre-deploy hardening is done.
+
+Phase 2 Stage A is complete (commit da4f757; built by Codex, finished by Claude Code). The landing
+page offers "Try a sample retailer", which loads `frontend/public/demo/retailer_sales.csv` (a
+clearly fictional shop, "Harbor Home") into the same upload -> mapping -> validation -> dashboard
+flow as a real upload; the user chose this guided path over a direct-to-dashboard shortcut. The
+API no longer downloads the Olist dataset at startup or serves `/report`, `/forecast`,
+`/segments`; `/health` returns `{"status": "ok"}`. The Olist research code and its unit tests
+remain for Stage B.
 
 ### Changed areas
 
@@ -106,9 +114,9 @@ production image (commit 327a0d0). All pre-deploy hardening is done; Phase 2 is 
   explicit selectable providers, but Phase 2 remains experimental.
 - Deployment and portfolio documentation are committed. Use the linked reports for detailed
   findings rather than copying evidence into this snapshot.
-- CI (`.github/workflows/ci.yml`) has five jobs, all on Python 3.12 with `-c constraints.txt`
+- CI (`.github/workflows/ci.yml`) has four jobs, all on Python 3.12 with `-c constraints.txt`
   and CPU-only `torch`: `backend` (lint, format check, mypy, unit tests, `pip-audit` of
-  `constraints.txt`), `integration` (needs `backend`; `pytest -q -m integration`), `frontend`
+  `constraints.txt`), `frontend`
   (tsc, `npm run lint`, build, `npm audit`), `e2e` (needs `backend` + `frontend`; Playwright
   against the fake RAG provider and tfidf retrieval backend, no real key needed), and `docker`
   (needs `backend`; builds `Dockerfile.api`, waits for `/api/v1/health`, fails if it runs as root).
@@ -158,6 +166,14 @@ production image (commit 327a0d0). All pre-deploy hardening is done; Phase 2 is 
   and bare `pytest -q -m "not integration"` (487 passed, 4 deselected) pass. Commit 02d8b92 alone
   fails 13 evaluation tests because it captured mid-edit test/script files; 3f5ba47 completes it.
   History was deliberately left unrewritten.
+- Phase 2 Stage A: GitHub Actions run 37155017748 on da4f757 passed all four jobs; in the `docker`
+  job the container answered `/api/v1/health` on its second 5-second check (it had taken 463 s
+  locally while downloading Olist). Locally: ruff, format, mypy, `pytest -q -m "not
+  integration"` (490 passed), tsc, lint, build, and all 8 Playwright journeys, including the
+  sample-retailer journey. A temporary Playwright check (not committed) confirmed the sample flow
+  fits a 390 px phone at every step and works keyboard-only. The `integration` CI job was removed
+  because its only four tests covered the removed Olist endpoints. The Docker image was not
+  rebuilt locally because of a slow connection.
 - Phase 1 hardening: GitHub Actions run 36386997515 on 99844a7 passed all four jobs. Locally,
   ruff, format (240 files), mypy (99 files), `pytest -q -m "not integration"` (489 passed,
   4 deselected), and all eight Playwright journeys passed. The image was built and run locally
@@ -239,10 +255,14 @@ production image (commit 327a0d0). All pre-deploy hardening is done; Phase 2 is 
   `transformers` 4.57.6 (6), `chromadb` 1.5.9 (4, no fixed release), `sentence-transformers`
   5.1.2 (1). Fixing them needs `sentence-transformers` 5.6+/`transformers` 5, an embedding-stack
   change that requires its own benchmarked phase. See the triage record.
-- Container startup downloads the 43 MB Olist demo dataset from Kaggle before the API serves
-  requests (`data/` is not in the image). On a slow connection startup took 463 s and the
-  container reported `unhealthy` until it finished. A deployed demo would repeat this on every
-  restart. Removing it is the first Phase 2 task.
+- Dead Olist code remains until Stage B: `frontend/src/components/OlistDashboard.tsx` and its
+  four chart components, the `fetchReport`/`fetchForecast`/`fetchSegments` functions in
+  `frontend/src/api.ts`, `api/cache.py`, the Olist response schemas and serializers, and
+  `src/stages`, `src/models`, `src/ingest.py`, `src/pipeline.py` with their unit tests. None is
+  reachable from the live app. `AGENTS.md` and the README's "What it does" section still
+  describe Olist as a benchmark; the README now labels it offline.
+- Validation errors render at the top of the workspace, far from the button the user clicked,
+  so on a long page an error can look like nothing happened. Noted, not changed.
 - Starlette 1.7 warns that its test client will move from `httpx` to `httpx2` (test-only).
   Adding that dependency needs the user's approval.
 - After changing any dependency, regenerate `constraints.txt` from a fresh Python 3.12
@@ -257,36 +277,29 @@ production image (commit 327a0d0). All pre-deploy hardening is done; Phase 2 is 
 
 ### Next recommended work
 
-1. **Phase 2 (assigned to Codex): make the demo publicly usable.** The user delegated the Olist
-   decision: retire it in two stages. Discuss the design with the user before coding.
-   - Stage A: replace the Olist entry in `SourceSelection` with a one-click "Try a sample
-     retailer" path that loads `tests/fixtures/retailer_demo/` (or a copy moved under the app)
-     straight into the finished dashboard. Remove the Kaggle download from `api/main.py`
-     startup, the `/report`, `/forecast`, `/segments` routes, and `OlistDashboard` from the live
-     app. Keep `src/stages`, `src/models`, and their tests until Stage A is verified.
-   - Stage B (separate commit): delete the Olist leftovers, the CI `integration` job, and
-     `kagglehub` if unused; regenerate `constraints.txt`; update `AGENTS.md` (it calls Olist a
-     fixed demo and benchmark) and add an ADR, since this changes a documented boundary. Update
-     README claims tied to Olist (14.2% MAPE, RFM segmentation) in the same change.
-   - Deploy: one replica only (stores are process-local). Set `GUEST_COOKIE_SECURE=true`, exact
-     `CORS_ORIGINS`, keep `DEVELOPMENT_OBSERVABILITY_ENABLED` off, and check the guest-session
-     cookie still works when frontend and API are on different domains. Hosting choice and any
-     paid tier are the user's decisions. The CI `docker` job's comment about Olist startup and
-     its five-minute wait can be tightened once the download is gone.
-   - README: one-line pitch, live link, short demo video, architecture diagram, results table
-     including the failed sparse stratum, honest limitations.
-2. Embedding-stack upgrade (`sentence-transformers`/`transformers`, review `chromadb`) as its own
+1. **Phase 2 Stage B: remove the Olist leftovers** (one commit). Delete the dead code listed under
+   Current limitations, drop `kagglehub` (and `matplotlib`/`openpyxl`/`scikit-learn` only if
+   nothing else imports them) and regenerate `constraints.txt` from a fresh 3.12 environment,
+   remove the now-unused `integration` pytest marker, update `AGENTS.md` (it calls Olist a fixed
+   demo and benchmark) and add an ADR, since this changes a documented boundary. Rewrite the
+   README's "What it does" around the product, keeping the Olist results only as history.
+2. **Phase 2 deploy.** One replica only (stores are process-local). Set `GUEST_COOKIE_SECURE=true`,
+   exact `CORS_ORIGINS`, keep `DEVELOPMENT_OBSERVABILITY_ENABLED` off, and verify the guest-session
+   cookie works when frontend and API are on different domains. Hosting choice and any paid tier
+   are the user's decisions. Then the README rewrite: one-line pitch, live link, short demo video,
+   architecture diagram, results table including the failed sparse stratum, honest limitations.
+3. Embedding-stack upgrade (`sentence-transformers`/`transformers`, review `chromadb`) as its own
    phase, with the frozen retrieval benchmark before and after; clears most remaining findings.
-3. Consider bumping the GitHub Actions versions to clear the Node 20 deprecation warnings.
-4. Obtain and safely prepare a permissioned, anonymized independent-retailer export, then run the
+4. Consider bumping the GitHub Actions versions to clear the Node 20 deprecation warnings.
+5. Obtain and safely prepare a permissioned, anonymized independent-retailer export, then run the
    existing offline evaluator without changing forecast policy after seeing its results.
-5. Propose an offline development-reference audit of alternate passages supporting
+6. Propose an offline development-reference audit of alternate passages supporting
    the same fact, with explicit scope/exception checks. Keep current scores and locked
    references unchanged; version any later scoring change separately. Investigate
    transport reliability and the undiagnosed Groq `400` with bounded diagnostics before
    another provider run. Do not switch models or add hybrid retrieval just to raise
    coverage. Stability/locked runs remain blocked pending complete development evidence.
-6. Treat any cold-start forecasting improvement as a separate user-approved design and evaluation
+7. Treat any cold-start forecasting improvement as a separate user-approved design and evaluation
    phase; do not loosen the live preview rules merely to increase coverage.
 
 ### Decisions requiring the user
