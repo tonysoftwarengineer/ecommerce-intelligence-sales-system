@@ -33,7 +33,7 @@ When updating, keep these headings and replace only the factual content beneath 
 
 ### Updater and date
 
-Claude Code — 2026-09-28 (Phase 1 pre-deploy hardening complete, pushed, CI green)
+Claude Code — 2026-10-03 (Python 3.12 upgrade and CI image check complete; Phase 2 handed to Codex)
 
 ### Completed phase
 
@@ -87,8 +87,13 @@ See the [diagnostic rerun report](docs/evaluation/rag_phase2_groq_hard_developme
 
 Phase 1 pre-deploy hardening is complete (commits 412f3c1, 99844a7): the API image runs as a
 non-root user with a health check, test/lint tooling is out of the production image, and CSV and
-RAG document uploads are rate-limited per anonymous guest. The remaining pre-deploy item is the
-Python runtime upgrade.
+RAG document uploads are rate-limited per anonymous guest.
+
+The Python runtime upgrade is complete ([ADR-016](docs/architecture/ADR-016-python-3-12-runtime-and-dependency-lock.md);
+commits 0676dda, 315bd5d): Python 3.12 everywhere, a `constraints.txt` lock of all 120 packages
+used by Docker, CI, and `pip-audit`, CPU-only `torch`, and FastAPI 0.141.1 / Starlette 1.7.0.
+Known Python vulnerabilities fell from 57 to 11. CI now also builds and smoke-tests the
+production image (commit 327a0d0). All pre-deploy hardening is done; Phase 2 is next.
 
 ### Changed areas
 
@@ -101,10 +106,12 @@ Python runtime upgrade.
   explicit selectable providers, but Phase 2 remains experimental.
 - Deployment and portfolio documentation are committed. Use the linked reports for detailed
   findings rather than copying evidence into this snapshot.
-- CI (`.github/workflows/ci.yml`) now has four jobs: `backend` (lint, format check, mypy, unit
-  tests, `pip-audit`), `integration` (needs `backend`; `pytest -q -m integration`), `frontend`
-  (tsc, `npm run lint`, build, `npm audit`), and `e2e` (needs `backend` + `frontend`; Playwright against the fake
-  RAG provider and tfidf retrieval backend, no real key needed).
+- CI (`.github/workflows/ci.yml`) has five jobs, all on Python 3.12 with `-c constraints.txt`
+  and CPU-only `torch`: `backend` (lint, format check, mypy, unit tests, `pip-audit` of
+  `constraints.txt`), `integration` (needs `backend`; `pytest -q -m integration`), `frontend`
+  (tsc, `npm run lint`, build, `npm audit`), `e2e` (needs `backend` + `frontend`; Playwright
+  against the fake RAG provider and tfidf retrieval backend, no real key needed), and `docker`
+  (needs `backend`; builds `Dockerfile.api`, waits for `/api/v1/health`, fails if it runs as root).
 - Quality-gate fixes: all 15 files that failed `ruff format --check` were reformatted (cosmetic
   only); `scripts/__init__.py` was added so mypy resolves `scripts.<name>` once; mypy now excludes
   `tests/` (`pyproject.toml`, `exclude = ["^tests/"]`) because 59 pre-existing errors were all
@@ -227,10 +234,20 @@ Python runtime upgrade.
 - Sessions, uploads, document indexes, and analysis state are temporary and process-local; this is
   not a production multi-tenant deployment.
 - `mypy` does not check `tests/`; test behavior is enforced by pytest only.
-- The dependency audits remain report-only. The frontend lockfile now audits cleanly, but the
-  Python audit still reports 57 findings in 14 packages. Python 3.9 blocks the listed fixes for
-  `python-multipart`, `python-dotenv`, and `pytest`; API and RAG/ML transitive fixes need separate
-  compatibility work. See the triage record for every package and its reason.
+- The dependency audits remain report-only. The frontend lockfile audits cleanly. The Python
+  audit of `constraints.txt` reports 11 findings in 3 packages, all in the embedding/index stack:
+  `transformers` 4.57.6 (6), `chromadb` 1.5.9 (4, no fixed release), `sentence-transformers`
+  5.1.2 (1). Fixing them needs `sentence-transformers` 5.6+/`transformers` 5, an embedding-stack
+  change that requires its own benchmarked phase. See the triage record.
+- Container startup downloads the 43 MB Olist demo dataset from Kaggle before the API serves
+  requests (`data/` is not in the image). On a slow connection startup took 463 s and the
+  container reported `unhealthy` until it finished. A deployed demo would repeat this on every
+  restart. Removing it is the first Phase 2 task.
+- Starlette 1.7 warns that its test client will move from `httpx` to `httpx2` (test-only).
+  Adding that dependency needs the user's approval.
+- After changing any dependency, regenerate `constraints.txt` from a fresh Python 3.12
+  environment that passes the full suite (instructions in its header). Local development uses
+  `.venv` (Python 3.12); the system `python3` on this Mac is still 3.9, so use `.venv/bin/...`.
 - The workflow still builds the frontend with Node 20 (`node-version: "20"` in `ci.yml`). Separately,
   GitHub warns that the JavaScript runtime of the actions themselves (`actions/checkout@v4`,
   `setup-node@v4`, `setup-python@v5`) is Node 20 and is being forced onto Node 24; that is the
@@ -240,12 +257,26 @@ Python runtime upgrade.
 
 ### Next recommended work
 
-1. Python runtime upgrade (3.9 to 3.11 or 3.12) as its own phase with an ADR: update
-   `Dockerfile.api`, CI `python-version`, `pyproject.toml` targets, and exact pins together; then
-   clear the triage record's blocked fixes and re-run the frozen RAG Phase 1 retrieval benchmark
-   before and after, since the embedding stack may change. This is the last pre-deploy item.
-2. Then Phase 2: deploy a public demo with a one-click sample-retailer path and rewrite the README
-   (retire the Olist demo in two stages, per the user's delegated decision).
+1. **Phase 2 (assigned to Codex): make the demo publicly usable.** The user delegated the Olist
+   decision: retire it in two stages. Discuss the design with the user before coding.
+   - Stage A: replace the Olist entry in `SourceSelection` with a one-click "Try a sample
+     retailer" path that loads `tests/fixtures/retailer_demo/` (or a copy moved under the app)
+     straight into the finished dashboard. Remove the Kaggle download from `api/main.py`
+     startup, the `/report`, `/forecast`, `/segments` routes, and `OlistDashboard` from the live
+     app. Keep `src/stages`, `src/models`, and their tests until Stage A is verified.
+   - Stage B (separate commit): delete the Olist leftovers, the CI `integration` job, and
+     `kagglehub` if unused; regenerate `constraints.txt`; update `AGENTS.md` (it calls Olist a
+     fixed demo and benchmark) and add an ADR, since this changes a documented boundary. Update
+     README claims tied to Olist (14.2% MAPE, RFM segmentation) in the same change.
+   - Deploy: one replica only (stores are process-local). Set `GUEST_COOKIE_SECURE=true`, exact
+     `CORS_ORIGINS`, keep `DEVELOPMENT_OBSERVABILITY_ENABLED` off, and check the guest-session
+     cookie still works when frontend and API are on different domains. Hosting choice and any
+     paid tier are the user's decisions. The CI `docker` job's comment about Olist startup and
+     its five-minute wait can be tightened once the download is gone.
+   - README: one-line pitch, live link, short demo video, architecture diagram, results table
+     including the failed sparse stratum, honest limitations.
+2. Embedding-stack upgrade (`sentence-transformers`/`transformers`, review `chromadb`) as its own
+   phase, with the frozen retrieval benchmark before and after; clears most remaining findings.
 3. Consider bumping the GitHub Actions versions to clear the Node 20 deprecation warnings.
 4. Obtain and safely prepare a permissioned, anonymized independent-retailer export, then run the
    existing offline evaluator without changing forecast policy after seeing its results.
