@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 
-import { fetchRagDocuments, getGroundedRagAnswer, uploadRagDocument } from "../api";
+import {
+  fetchRagDocuments,
+  getGroundedRagAnswer,
+  sendAnswerFeedback,
+  uploadRagDocument,
+} from "../api";
 import type {
   RagAnswerResponse,
   RagDocumentMetadata,
@@ -202,6 +207,7 @@ export function EvidenceSearchPanel({ analysisId, isSample = false }: EvidenceSe
       {error ? <div className="notice notice--error" role="alert">{error}</div> : null}
       {result ? (
         <EvidenceResult
+          analysisId={analysisId}
           result={result}
         />
       ) : null}
@@ -210,8 +216,10 @@ export function EvidenceSearchPanel({ analysisId, isSample = false }: EvidenceSe
 }
 
 function EvidenceResult({
+  analysisId,
   result,
 }: {
+  analysisId: string;
   result: RagAnswerResponse;
 }) {
   if (result.status === "unavailable" && result.reason_codes.includes("daily_answer_budget_exhausted")) {
@@ -267,6 +275,7 @@ function EvidenceResult({
           </li>
         ))}
       </ol>
+      <AnswerFeedback analysisId={analysisId} />
       <details>
         <summary>Technical retrieval evidence</summary>
         <ol>
@@ -297,6 +306,36 @@ function providerDisplayName(provider: string): string {
     groq_rest: "Groq",
   };
   return providerNames[provider] ?? "the selected AI provider";
+}
+
+function AnswerFeedback({ analysisId }: { analysisId: string }) {
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+
+  async function send(helpful: boolean) {
+    setState("sending");
+    try {
+      await sendAnswerFeedback(analysisId, helpful);
+      setState("sent");
+    } catch {
+      setState("error");
+    }
+  }
+
+  if (state === "sent") {
+    return <p className="answer-feedback" role="status">Thanks, your feedback was recorded.</p>;
+  }
+  return (
+    <div className="answer-feedback" role="group" aria-label="Was this answer helpful?">
+      <span>Was this answer helpful?</span>
+      <button type="button" className="button button--secondary button--small" disabled={state === "sending"} onClick={() => send(true)}>
+        Helpful
+      </button>
+      <button type="button" className="button button--secondary button--small" disabled={state === "sending"} onClick={() => send(false)}>
+        Not helpful
+      </button>
+      {state === "error" ? <span role="alert">Feedback was not saved. Please try again.</span> : null}
+    </div>
+  );
 }
 
 function TechnicalSummary({ result }: { result: RagAnswerResponse }) {

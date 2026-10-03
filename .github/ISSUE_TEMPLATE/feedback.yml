@@ -1,0 +1,47 @@
+name: Tester feedback
+description: Tell us what worked, what was confusing, or what broke.
+title: "[Feedback] "
+labels: ["feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying the Ecommerce Intelligence Sales System.
+        **This issue is public.** Do not paste real customer data, sales rows, API keys, or
+        private documents. Describe the problem in words, or use the fictional sample retailer.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of the app?
+      options:
+        - Landing page or sample retailer
+        - Uploading or matching CSV columns
+        - Checking sales rows / excluded rows
+        - Sales dashboard
+        - Product demand preview
+        - Asking about documents (AI answers)
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: What did you try to do?
+    validations:
+      required: true
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened?
+      description: Include any message the app showed.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect, or what would make it better?
+  - type: input
+    id: device
+    attributes:
+      label: Device and browser
+      placeholder: e.g. iPhone 14, Safari; or Windows laptop, Chrome

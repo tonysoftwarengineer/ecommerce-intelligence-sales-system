@@ -12,6 +12,11 @@ const apiPython = process.env.E2E_PYTHON ?? (
   process.env.CI ? "python3" : path.join(projectRoot, ".venv", "bin", "python")
 );
 
+// Never reuse a server that happens to be running: a stale one silently tests old
+// code. If a port is busy the run fails loudly instead. Opt in with
+// E2E_REUSE_SERVER=1 when you deliberately want to test against your own dev server.
+const reuseExistingServer = process.env.E2E_REUSE_SERVER === "1";
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
@@ -48,7 +53,7 @@ export default defineConfig({
         RAG_ANSWER_PROVIDER: "fake",
       },
       url: `${apiBaseUrl}/api/v1/health`,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer,
       timeout: 30_000,
     },
     {
@@ -56,7 +61,7 @@ export default defineConfig({
       cwd: frontendRoot,
       env: { VITE_API_URL: apiBaseUrl },
       url: frontendBaseUrl,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer,
       timeout: 30_000,
     },
   ],

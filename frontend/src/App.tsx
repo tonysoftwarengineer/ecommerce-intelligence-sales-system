@@ -11,7 +11,25 @@ const BusinessWorkspace = lazy(() =>
   })),
 );
 
+const FEEDBACK_URL =
+  import.meta.env.VITE_FEEDBACK_URL ??
+  "https://github.com/tonysoftwarengineer/ecommerce-intelligence-sales-system/issues/new?template=feedback.yml";
+
 function App() {
+  return (
+    <>
+      <AppView />
+      <footer className="app-feedback">
+        <a href={FEEDBACK_URL} target="_blank" rel="noopener noreferrer">
+          Give feedback
+        </a>
+        <span> · opens a public GitHub form; please do not include private data.</span>
+      </footer>
+    </>
+  );
+}
+
+function AppView() {
   const [view, setView] = useState<View>(() =>
     sessionStorage.getItem("sales-analysis-id") ? "upload" : "sources",
   );

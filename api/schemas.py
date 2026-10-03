@@ -122,6 +122,8 @@ class RagAnswerObservabilityResponse(BaseModel):
     provider_backed_attempts: int
     rate_limited_requests: int
     cache_hits: int
+    feedback_helpful: int
+    feedback_not_helpful: int
     usage_unavailable_count: int
     latency_ms: AnalysisLatencyMetrics
     input_tokens: AnalysisLatencyMetrics
@@ -155,6 +157,10 @@ class RagDocumentListResponse(BaseModel):
 
 class RagRetrievalRequest(BaseModel):
     question: str = Field(min_length=3, max_length=500)
+
+
+class RagAnswerFeedbackRequest(BaseModel):
+    helpful: bool
 
 
 class RagTechnicalEvidenceResponse(BaseModel):

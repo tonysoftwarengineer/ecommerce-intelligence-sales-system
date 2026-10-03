@@ -538,6 +538,52 @@ def test_daily_budget_exhaustion_is_honest_and_skips_the_provider(monkeypatch) -
     assert provider.call_count == 1
 
 
+def test_answer_feedback_is_counted_without_storing_content(monkeypatch) -> None:
+    monkeypatch.setattr(routes, "DEVELOPMENT_OBSERVABILITY_ENABLED", True)
+    monkeypatch.setattr(routes, "DEVELOPMENT_OBSERVABILITY_TOKEN", "test-admin-token")
+    client = TestClient(api_main.app)
+    analysis_id = _analysis(client)
+    url = f"/api/v1/analyses/{analysis_id}/rag/answer-feedback"
+
+    helpful = client.post(url, json={"helpful": True})
+    not_helpful = client.post(url, json={"helpful": False})
+    invalid = client.post(url, json={"helpful": "yes please"})
+    metrics = client.get(
+        "/api/v1/observability/rag-answer-metrics",
+        headers={"Authorization": "Bearer test-admin-token"},
+    ).json()
+
+    assert helpful.status_code == 204
+    assert not_helpful.status_code == 204
+    assert invalid.status_code == 422
+    assert metrics["feedback_helpful"] == 1
+    assert metrics["feedback_not_helpful"] == 1
+    assert analysis_id not in str(metrics)
+
+
+def test_answer_feedback_is_scoped_to_the_guests_own_analysis() -> None:
+    owner = TestClient(api_main.app)
+    analysis_id = _analysis(owner)
+    stranger = TestClient(api_main.app)
+
+    response = stranger.post(
+        f"/api/v1/analyses/{analysis_id}/rag/answer-feedback", json={"helpful": True}
+    )
+
+    assert response.status_code == 404
+
+
+def test_answer_feedback_is_rate_limited(monkeypatch) -> None:
+    monkeypatch.setattr(routes, "answer_feedback_rate_limiter", RagAnswerRateLimiter(limit=2))
+    client = TestClient(api_main.app)
+    analysis_id = _analysis(client)
+    url = f"/api/v1/analyses/{analysis_id}/rag/answer-feedback"
+
+    statuses = [client.post(url, json={"helpful": True}).status_code for _ in range(3)]
+
+    assert statuses == [204, 204, 429]
+
+
 class _SearchUnavailableIndex(RetrievalIndex):
     name = "unavailable_test_index"
 

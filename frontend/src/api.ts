@@ -184,6 +184,19 @@ export function getGroundedRagAnswer(
   );
 }
 
+export async function sendAnswerFeedback(analysisId: string, helpful: boolean): Promise<void> {
+  // 204 No Content: fetchJson would fail parsing an empty body.
+  const response = await fetch(`${BASE_URL}/api/v1/analyses/${analysisId}/rag/answer-feedback`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ helpful }),
+  });
+  if (!response.ok) {
+    throw new Error(`Feedback was not saved (${response.status})`);
+  }
+}
+
 export function deleteUpload(uploadId: string): Promise<void> {
   return fetch(`${BASE_URL}/api/v1/uploads/${uploadId}`, {
     method: "DELETE",

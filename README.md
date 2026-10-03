@@ -173,6 +173,7 @@ protected by host-scoped cookies.
 | `DELETE /api/v1/analyses/{analysis_id}/rag/documents/{document_id}` | Remove one analysis-scoped RAG source |
 | `POST /api/v1/analyses/{analysis_id}/rag/retrieve` | Return up to three cited evidence excerpts or an honest abstention; no generated answer |
 | `POST /api/v1/analyses/{analysis_id}/rag/answer` | Return only verified, claim-level grounded answers or a bounded abstention/unavailable result |
+| `POST /api/v1/analyses/{analysis_id}/rag/answer-feedback` | Record a helpful / not helpful vote on an answer; stores only aggregate counts, no text |
 | `GET /api/v1/observability/rag-answer-metrics` | Aggregate grounded-answer metrics when enabled and called with the admin token; otherwise 404 |
 
 The API no longer downloads or serves the Olist demo dataset at startup, so it is ready to

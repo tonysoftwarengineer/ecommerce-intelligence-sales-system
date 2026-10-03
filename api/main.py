@@ -11,6 +11,7 @@ from api.rag_service import retrieval_service
 from api.routes import (
     _delete_analysis_rag_scope,
     analysis_store,
+    answer_feedback_rate_limiter,
     delete_owner_rag_scopes,
     document_store,
     rag_answer_cache,
@@ -73,8 +74,10 @@ async def cleanup_expired_temporary_data() -> None:
         for session in expired_guest_sessions:
             removed_documents += delete_owner_rag_scopes(session.session_id)
             rag_answer_rate_limiter.drop_owner(session.session_id)
+            answer_feedback_rate_limiter.drop_owner(session.session_id)
             upload_rate_limiter.drop_owner(session.session_id)
         rag_answer_rate_limiter.cleanup_expired()
+        answer_feedback_rate_limiter.cleanup_expired()
         upload_rate_limiter.cleanup_expired()
         if removed_uploads or removed_analyses or removed_documents or removed_guest_sessions:
             logger.info(
@@ -104,6 +107,7 @@ async def lifespan(app: FastAPI):
         retrieval_service.clear()
         rag_answer_observability.clear()
         rag_answer_rate_limiter.clear()
+        answer_feedback_rate_limiter.clear()
         rag_answer_cache.clear()
         rag_answer_daily_budget.clear()
         upload_rate_limiter.clear()

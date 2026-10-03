@@ -1462,3 +1462,20 @@
   .evidence-search__upload, .evidence-search__question > div { grid-template-columns: 1fr; }
   .evidence-search__upload .button { grid-column: auto; }
 }
+
+.app-feedback {
+  padding: 24px 16px 32px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+.app-feedback a { color: #a7d0ff; font-weight: 600; }
+
+.answer-feedback {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0;
+  font-size: 0.85rem;
+}

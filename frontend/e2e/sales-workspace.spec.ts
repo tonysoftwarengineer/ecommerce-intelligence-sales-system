@@ -238,7 +238,8 @@ test("shows a category fallback when sparse products are jointly predictable", a
 test("walks a fictional online retailer from sales upload to demand preview and document evidence", async ({ page }) => {
   let answerRequests = 0;
   page.on("request", (request) => {
-    if (request.url().includes("/rag/answer")) answerRequests += 1;
+    // Exact path: "/rag/answer-feedback" also contains "/rag/answer".
+    if (new URL(request.url()).pathname.endsWith("/rag/answer")) answerRequests += 1;
   });
   await page.goto("/");
   await page.getByRole("button", { name: /Try a sample retailer/ }).click();
@@ -274,6 +275,14 @@ test("walks a fictional online retailer from sales upload to demand preview and 
   await question.fill("How long does standard Lagos delivery take?");
   await panel.getByRole("button", { name: "Get answer from documents" }).click();
   await expect(panel.getByRole("heading", { name: "Answer from your documents" })).toBeVisible();
+  const feedbackRequest = page.waitForRequest("**/rag/answer-feedback");
+  await panel.getByRole("button", { name: "Helpful", exact: true }).click();
+  expect((await feedbackRequest).postDataJSON()).toEqual({ helpful: true });
+  await expect(panel.getByText("Thanks, your feedback was recorded.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Give feedback" })).toHaveAttribute(
+    "href",
+    /issues\/new\?template=feedback\.yml/,
+  );
   await expect(
     panel.getByRole("paragraph").filter({ hasText: "2 to 4 business days" }),
   ).toBeVisible();

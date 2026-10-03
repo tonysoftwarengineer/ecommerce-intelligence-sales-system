@@ -53,6 +53,7 @@ from api.schemas import (
     MappingSuggestionsResponse,
     ProductDemandRequest,
     ProductDemandResponse,
+    RagAnswerFeedbackRequest,
     RagAnswerObservabilityResponse,
     RagAnswerResponse,
     RagDocumentListResponse,
@@ -115,6 +116,8 @@ rag_answer_observability = RagAnswerObservability()
 rag_answer_rate_limiter = RagAnswerRateLimiter(RAG_ANSWER_RATE_LIMIT_PER_MINUTE)
 rag_answer_daily_budget = RagAnswerDailyBudget(RAG_ANSWER_DAILY_BUDGET)
 rag_answer_cache = RagAnswerCache()
+# Feedback is cheap but still capped so one client cannot inflate the counts.
+answer_feedback_rate_limiter = RagAnswerRateLimiter(30)
 # Reuses the same generic sliding-window limiter as the RAG-answer budget
 # above; it isn't RAG-specific, just named for its first caller.
 upload_rate_limiter = RagAnswerRateLimiter(UPLOAD_RATE_LIMIT_PER_MINUTE)
@@ -919,6 +922,26 @@ def answer_from_analysis_documents(
             "retrieval_latency_ms": result.retrieval.latency_ms,
         },
     }
+
+
+@router.post("/analyses/{analysis_id}/rag/answer-feedback", status_code=204)
+def record_answer_feedback(
+    analysis_id: str,
+    payload: RagAnswerFeedbackRequest,
+    request: Request,
+):
+    """Count a helpful / not helpful vote. Stores no question, answer, or guest ID."""
+    owner_scope_id = _owner_scope_id(request)
+    _get_analysis_session(owner_scope_id, analysis_id)
+    decision = answer_feedback_rate_limiter.consume(owner_scope_id)
+    if not decision.allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Too much feedback at once. Please try again shortly.",
+            headers={"Retry-After": str(decision.retry_after_seconds)},
+        )
+    rag_answer_observability.record_feedback(payload.helpful)
+    return Response(status_code=204)
 
 
 def _delete_analysis_rag_scope(owner_scope_id: str, analysis_id: str) -> int:

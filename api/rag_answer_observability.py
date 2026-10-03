@@ -44,6 +44,13 @@ class RagAnswerObservability:
             self._append(self._output_tokens, result.usage.output_tokens)
             self._append(self._total_tokens, result.usage.total_tokens)
 
+    def record_feedback(self, helpful: bool) -> None:
+        with self._lock:
+            if helpful:
+                self._feedback_helpful += 1
+            else:
+                self._feedback_not_helpful += 1
+
     def record_rate_limited(self, provider: str, model: str) -> None:
         with self._lock:
             self._answer_requests += 1
@@ -63,6 +70,8 @@ class RagAnswerObservability:
                 "provider_backed_attempts": self._provider_backed_attempts,
                 "rate_limited_requests": self._rate_limited_requests,
                 "cache_hits": self._cache_hits,
+                "feedback_helpful": self._feedback_helpful,
+                "feedback_not_helpful": self._feedback_not_helpful,
                 "usage_unavailable_count": self._usage_unavailable_count,
                 "latency_ms": _latency_summary(self._latencies),
                 "input_tokens": _latency_summary(self._input_tokens),
@@ -79,6 +88,8 @@ class RagAnswerObservability:
             self._provider_backed_attempts = 0
             self._rate_limited_requests = 0
             self._cache_hits = 0
+            self._feedback_helpful = 0
+            self._feedback_not_helpful = 0
             self._usage_unavailable_count = 0
             self._latencies: list[float] = []
             self._input_tokens: list[float] = []
