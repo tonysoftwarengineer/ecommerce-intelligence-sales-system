@@ -9,27 +9,28 @@ focus is not an upload restriction.
 
 Visitors without their own file can choose **Try a sample retailer**, which runs a small,
 clearly fictional shop's CSV through the same guided upload, mapping, validation, and dashboard
-flow. The [Olist Brazilian E-Commerce dataset](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce)
-(2016–2018) was the project's original benchmark. Its research code remains in the repository,
-but it is no longer part of the live app. Olist-specific fields are not the uploaded-business
-contract.
+flow. Olist was an earlier research benchmark, not the uploaded-business contract or a live demo.
 
 ## What it does
 
-**Olist research code (offline, not in the live app)** — revenue aggregates, top categories, top customers, and revenue by state, plus:
+**Understand sales:** Upload a CSV, review suggested column matches and business rules, and see
+recognized sales, orders, average order value, and measurable changes. Direct identifiers are
+masked in the preview. Invalid rows are excluded with reasons and downloadable for correction;
+the accepted canonical rows can also be downloaded.
 
-**Olist benchmark machine learning (offline)**
-- *Revenue forecasting* — a linear trend fit over a recent window. The window size was chosen by sweeping candidates against a rolling backtest, not assumed: 6 months scored **14.2% MAPE** vs 26.0% for 12 months and 31.1% for full history.
-- *Customer segmentation* — RFM features + k-means over 94,398 customers, labelled from cluster centroids after fitting. The segmentation surfaces a real finding: **High Value is the only segment that orders more than once** (2.11 avg orders vs 1.00 everywhere else).
+**Plan cautiously:** Revenue trends and eligible seven-day product-unit estimates use transparent
+methods and historical checks. A forecast may be unavailable or preview-only when the evidence is
+weak; it is not a dependable restocking instruction.
 
-**Olist data checks** — joins validate key uniqueness and row counts rather than silently producing wrong numbers; canceled and unfulfilled orders are excluded from revenue; customer-level analysis keys on `customer_unique_id` (a per-person id) rather than `customer_id` (a per-order token).
+**Ask about approved documents:** Text and Markdown sources can be uploaded to one analysis. The
+experimental document-answer feature retrieves relevant excerpts, cites exact supporting quotes,
+and abstains when evidence is insufficient. It does not answer sales-performance questions yet.
 
-**Analyze your business** — uploaded business CSVs can be previewed with direct identifiers masked,
-given explainable mapping suggestions, value-validated, quarantined with user confirmation, and
-transformed into a canonical sales dataset. The product
-then calculates capability-aware KPIs and charts, evaluates transparent forecast candidates with
-rolling backtests, and provides canonical and quarantine downloads. Supported revenue modes are
-row total, unit price × quantity, and order total.
+The historical Olist research benchmark is no longer shipped as code. Its six-month linear
+revenue-trend experiment scored **14.2% MAPE** on its own rolling backtest, and an RFM study of
+94,398 customers found that the “High Value” cluster averaged 2.11 orders versus 1.00 in other
+clusters. Those results are historical research only, not validation of the current retailer
+forecast or a promise about uploaded businesses.
 
 ### First-release audience and questions
 
@@ -72,32 +73,19 @@ panel are implemented. Experimental grounded document answers are implemented
 behind claim-level citation and exact-quote checks; their locked Phase 2 release
 evaluation is still pending.
 
-```
-ingest() → clean_all() → join_all() → run_analysis() → report / dashboard / API
-                              ↓
-                    forecast + segmentation
-
-business CSV → preview → map → validate → quarantine/transform → analyze → dashboard
-
+```text
+business CSV → preview → map → validate → quarantine/transform → analytics → dashboard
+                                      ↘ eligible forecast previews and diagnostics
 approved document → chunk/index latest version → retrieve evidence → verify cited AI claims or abstain
 ```
 
 | Module | Responsibility |
 |---|---|
-| `config.py` | Paths, dataset id, table filenames — single source of truth |
-| `src/ingest.py` | Downloads via `kagglehub` (skipped if `data/` is populated) and loads the raw CSVs |
-| `src/stages/clean.py` | Per-table cleaning — dates, order-status filtering, missing values |
-| `src/stages/join.py` | Merges into one analysis-ready frame, with join validation |
-| `src/stages/analyze.py` | The six business-question functions |
-| `src/stages/report.py` | Console formatting — currency, state names, category labels |
-| `src/stages/visualize.py` | Matplotlib dashboard (2×2 grid) |
-| `src/models/forecast.py` | Trend forecast, rolling backtest, MAE/RMSE/MAPE metrics |
-| `src/models/segmentation.py` | RFM + k-means, centroid-based labelling |
+| `config.py` | Local and deployment configuration |
 | `src/schema_mapping.py` | Canonical CSV field definitions and schema-mapping validation |
 | `src/generic_sales/` | Validation, canonical transformation, generic analytics, and adaptive forecasting |
 | `src/product_demand/` | Product/category readiness, calendar semantics, rolling evaluation, candidate selection, and preview trust policy |
 | `src/rag/` | Chunking, lexical/semantic indexes, retrieval policy, metrics, and untrusted-context contracts |
-| `src/pipeline.py` | `build_dataset()` and `run_pipeline()` |
 | `api/` | FastAPI app — routes, serializers, expiring upload and analysis-session storage |
 | `frontend/` | React + TypeScript + Recharts dashboard |
 
@@ -116,27 +104,16 @@ those libraries may resolve to newer, untested versions. Use
 `pip install -r requirements.txt -c constraints.txt` alone only when reproducing
 the production image, which never installs test/lint tooling (see `Dockerfile.api`).
 
-The app itself downloads no external data. Only the offline Olist research code and its integration tests fetch the public Olist dataset, anonymously via `kagglehub` (~43MB, no Kaggle credentials needed). `data/` is gitignored and populated automatically.
+The app does not download an external sales dataset at startup. The optional document embedding
+model is preloaded in the demo image; local semantic retrieval may download its model on first use.
 
 ## Usage
-
-**Console report**
-
-```bash
-python3 -m main
-```
-
-**Matplotlib dashboard**
-
-```bash
-python3 -m src.stages.visualize
-```
 
 **Web dashboard** — two terminals, from the project root:
 
 ```bash
-# 1. API (wait for "Startup complete" — it builds the dataset once, ~5s)
-python3 -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+# 1. API
+.venv/bin/python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
 
 # 2. Frontend
 cd frontend && npm install && npm run dev -- --host 127.0.0.1
@@ -176,9 +153,7 @@ protected by host-scoped cookies.
 | `POST /api/v1/analyses/{analysis_id}/rag/answer-feedback` | Record a helpful / not helpful vote on an answer; stores only aggregate counts, no text |
 | `GET /api/v1/observability/rag-answer-metrics` | Aggregate grounded-answer metrics when enabled and called with the admin token; otherwise 404 |
 
-The API no longer downloads or serves the Olist demo dataset at startup, so it is ready to
-serve as soon as the process starts. The Olist research code under `src/stages` and
-`src/models` remains for a separate cleanup.
+The API serves the retailer workflow without loading a benchmark sales dataset.
 
 Business CSV uploads are held in process memory for at most 30 minutes and are removed early by the
 web app after analysis succeeds. Derived analysis sessions and approved RAG source documents expire
@@ -296,8 +271,6 @@ local file.
 | Variable | Default | Purpose |
 |---|---|---|
 | `LOG_LEVEL` | `INFO` | Logging verbosity |
-| `DATA_DIR` | `./data` | Where the CSVs are stored |
-| `KAGGLE_DATASET` | `olistbr/brazilian-ecommerce` | Dataset to download |
 | `CORS_ORIGINS` | *(empty)* | Comma-separated exact origins for production, e.g. `https://dashboard.example.com` |
 | `CORS_ORIGIN_REGEX` | any `localhost` port | Dev fallback, used only when `CORS_ORIGINS` is empty |
 | `UPLOAD_TTL_MINUTES` | `30` | Fixed lifetime for temporary business CSV uploads |
@@ -326,8 +299,7 @@ local file.
 pytest -q
 ```
 
-Tests marked `integration` build the real dataset rather than mocking it, so their first run
-downloads the data. The generic CSV and analytics tests do not need the Olist dataset.
+The backend suite tests the retailer workflow without downloading Olist data.
 
 `tests/test_csv_trust_matrix.py` runs 15 end-to-end CSV scenarios through the upload API. The
 matrix covers all revenue modes, discount scopes, statuses, refunds, duplicate and malformed rows,
@@ -342,7 +314,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-The suite starts isolated API and frontend servers when they are not already running. It covers a
+The suite starts isolated API and frontend servers. It covers a
 complete evidence-rich analysis, required quarantine confirmation, friendly unavailable states for
 limited data, and the product-demand upload-to-preview journey. Failure screenshots, traces, and
 screen recordings are written to ignored local test artifact directories. Use
@@ -352,21 +324,19 @@ screen recordings are written to ignored local test artifact directories. Use
 
 ```
 config.py
-main.py
 api/            FastAPI backend
 src/
-├── ingest.py
-├── pipeline.py
 ├── logging_config.py
-├── models/     forecast.py, segmentation.py
-└── stages/     clean.py, join.py, analyze.py, report.py, visualize.py
+├── generic_sales/
+├── product_demand/
+└── rag/
 frontend/       React + TypeScript dashboard
 tests/
 ```
 
 ## Roadmap
 
-Built: Olist analytics, charts, forecasting + segmentation, REST API, generic CSV preview, schema
+Built: retailer-focused REST API, generic CSV preview, schema
 mapping, value validation, quarantine reporting, canonical transformation, generic analytics,
 adaptive forecasting, retail status/discount/refund/payment rules, multi-currency reporting,
 expiring analysis sessions, downloads, backend-owned data-quality readiness, guided CSV repair,
@@ -402,7 +372,8 @@ foundations.
 
 ## Data & license
 
-Dataset: ["Brazilian E-Commerce Public Dataset by Olist"](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce) on Kaggle. See the Kaggle page for license terms.
+Historical benchmark: [Brazilian E-Commerce Public Dataset by Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce).
+Its data is not bundled with the app; consult the source for license terms.
 
 ## Development
 
@@ -411,7 +382,6 @@ ruff check .              # lint
 ruff format .             # format
 mypy .                    # type check
 pytest -q                 # all tests
-pytest -q -m "not integration"   # unit tests only (~2s, no data needed)
 ```
 
-Tests marked `integration` build the real dataset, so they're slower and need network on first run. CI runs the unit subset plus lint, format, types, and a frontend typecheck/build.
+CI runs the backend tests, lint, format, types, frontend checks, browser journeys, and image smoke test.

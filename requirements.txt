@@ -12,11 +12,9 @@ pandas==2.3.3
 # deprecation of generic timedelta units, which NumPy says will become an
 # error. 2.4.x is clean. Revisit when pandas is upgraded.
 numpy==2.4.6
-kagglehub==0.3.13
-matplotlib==3.9.4
 openpyxl==3.1.5
 
-# --- Forecasting + customer segmentation ---
+# --- Forecasting + lexical retrieval ---
 scikit-learn==1.6.1
 
 # --- Retrieval evaluation (lazy-loaded by the RAG subsystem) ---

@@ -27,7 +27,8 @@ The first target user is an owner or operator of a small online retailer selling
 physical products with repeat sales and no dedicated data team. They have order
 exports and need to understand sales changes before planning any restock. The
 generic CSV path remains usable for other businesses with valid data; no
-business-type gate was added. Olist remains a benchmark and fixed demo.
+business-type gate was added. Olist was an earlier research benchmark; its code and live-demo path
+have been retired, so its results do not establish performance for this audience.
 
 ### Questions the product answers
 

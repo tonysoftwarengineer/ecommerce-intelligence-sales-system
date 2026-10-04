@@ -1002,8 +1002,7 @@ def test_upload_cors_preflight_allows_post():
 
 
 def test_api_starts_without_download_and_legacy_demo_routes_are_gone():
-    with patch("src.pipeline.build_dataset", side_effect=AssertionError("demo download called")):
-        with TestClient(api_main.app) as client:
-            assert client.get("/api/v1/health").json() == {"status": "ok"}
-            for route in ("report", "forecast", "segments"):
-                assert client.get(f"/api/v1/{route}").status_code == 404
+    with TestClient(api_main.app) as client:
+        assert client.get("/api/v1/health").json() == {"status": "ok"}
+        for route in ("report", "forecast", "segments"):
+            assert client.get(f"/api/v1/{route}").status_code == 404

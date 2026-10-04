@@ -31,11 +31,8 @@ jobs:
       - name: Type check
         run: mypy .
 
-      # The `integration` marker selects tests that download external data.
-      # None remain since the live app stopped using the Olist dataset; it is
-      # excluded here so any future one does not slow ordinary CI.
-      - name: Unit tests
-        run: pytest -q -m "not integration"
+      - name: Backend tests
+        run: pytest -q
 
       # Report-only: surfaces vulnerable pins without blocking the build,
       # since this repo deliberately exact-pins dependencies and a fix may

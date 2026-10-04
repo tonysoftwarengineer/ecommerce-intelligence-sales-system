@@ -22,10 +22,6 @@ load_project_dotenv()
 # Anything that differs between a laptop and a deployed server is read from the
 # environment, with a working local default. Deploying should never require
 # editing source.
-DATA_DIR = Path(os.environ.get("DATA_DIR", PROJECT_ROOT / "data"))
-
-KAGGLE_DATASET = os.environ.get("KAGGLE_DATASET", "olistbr/brazilian-ecommerce")
-
 # Comma-separated exact origins, e.g. "https://dashboard.example.com".
 # Empty (the default) falls back to CORS_ORIGIN_REGEX below.
 CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
@@ -109,15 +105,3 @@ if RAG_ANSWER_DAILY_BUDGET < 1:
 if UPLOAD_RATE_LIMIT_PER_MINUTE < 1:
     raise ValueError("UPLOAD_RATE_LIMIT_PER_MINUTE must be positive")
 validate_observability_settings(DEVELOPMENT_OBSERVABILITY_ENABLED, DEVELOPMENT_OBSERVABILITY_TOKEN)
-
-TABLE_FILES = {
-    "orders": "olist_orders_dataset.csv",
-    "order_items": "olist_order_items_dataset.csv",
-    "customers": "olist_customers_dataset.csv",
-    "products": "olist_products_dataset.csv",
-    "payments": "olist_order_payments_dataset.csv",
-    "reviews": "olist_order_reviews_dataset.csv",
-    "sellers": "olist_sellers_dataset.csv",
-    "geolocation": "olist_geolocation_dataset.csv",
-    "category_translation": "product_category_name_translation.csv",
-}

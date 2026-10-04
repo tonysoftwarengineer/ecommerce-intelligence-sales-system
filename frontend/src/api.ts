@@ -2,7 +2,6 @@ import type {
   CsvPreviewResponse,
   DataValidationResponse,
   DistinctValuesResponse,
-  ForecastResponse,
   GenericAnalysisResponse,
   MappingSuggestionsResponse,
   ProductDemandRequest,
@@ -12,11 +11,9 @@ import type {
   RagDocumentMetadata,
   RagDocumentType,
   RagRetrievalResponse,
-  ReportResponse,
   RevenueMode,
   SalesConfiguration,
   SchemaMappingResponse,
-  SegmentsResponse,
 } from "./types";
 
 // Guest uploads belong to an HTTP-only, host-scoped session cookie. In local
@@ -57,18 +54,6 @@ function postJson<T>(path: string, body: object): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-}
-
-export function fetchReport(): Promise<ReportResponse> {
-  return fetchJson<ReportResponse>("/api/v1/report");
-}
-
-export function fetchForecast(): Promise<ForecastResponse> {
-  return fetchJson<ForecastResponse>("/api/v1/forecast");
-}
-
-export function fetchSegments(): Promise<SegmentsResponse> {
-  return fetchJson<SegmentsResponse>("/api/v1/segments");
 }
 
 export function uploadCsv(file: File): Promise<CsvPreviewResponse> {

@@ -6,8 +6,8 @@ This repository is a learning-first, trust-first commerce intelligence platform 
 medium businesses. The product turns business sales CSVs into validated analytics, diagnostics,
 forecast previews, and grounded answers from approved documents.
 
-The generic business-data path is the product. The Olist path is a fixed demo and benchmark; do
-not couple new generic features to Olist-specific columns or assumptions.
+The generic business-data path is the product. The retired Olist research benchmark is historical
+context, not a live demo or a dependency of the product.
 
 This is currently a portfolio-grade experimental system, not certified accounting software or a
 production multi-tenant SaaS. Product-demand forecasting still needs validation against a
@@ -43,9 +43,6 @@ authoritative stable engineering contract.
 ## System Map
 
 ```text
-Olist demo:
-src/ingest.py -> src/stages/ -> src/models/ -> api/cache.py -> API/dashboard
-
 Business product:
 CSV upload -> mapping -> validation -> quarantine -> canonical transformation
            -> analytics/diagnostics -> forecast capability checks -> dashboard/downloads
@@ -60,7 +57,7 @@ guest + analysis scope -> chunk/index/retrieve -> bounded answer provider
   process-local stores.
 - `frontend/` owns the React/TypeScript workflow and presentation. It must not become the source of
   truth for financial or validation rules.
-- `tests/` contains unit, integration, evaluation, trust-matrix, and browser evidence.
+- `tests/` contains unit, evaluation, trust-matrix, and browser evidence.
 - `docs/architecture/` contains accepted Architecture Decision Records. Read the relevant ADR
   before changing an established boundary.
 - `scripts/` contains repeatable offline evaluations, not hidden production behavior.
@@ -75,7 +72,7 @@ to the requested change.
 - Keep `src/` free of FastAPI and Pydantic imports. Convert domain objects at the API boundary.
 - Keep domain contracts explicit. Existing immutable contracts use frozen dataclasses and tuples;
   preserve their invariants unless an approved design changes them.
-- Keep Olist, generic commerce, product-demand, diagnostics, and RAG concerns separated. Reuse
+- Keep generic commerce, product-demand, diagnostics, and RAG concerns separated. Reuse
   contracts deliberately; do not create accidental cross-dependencies.
 - Environment-dependent values belong in `config.py` or environment variables, never scattered
   through business logic.
@@ -146,16 +143,15 @@ Run commands from the repository root unless noted otherwise.
 
 ```bash
 # Focused backend test
-pytest -q tests/test_file.py::test_name
+.venv/bin/pytest -q tests/test_file.py::test_name
 
 # Backend quality gates
-ruff check .
-ruff format --check .
-mypy .
-pytest -q -m "not integration"
+.venv/bin/ruff check .
+.venv/bin/ruff format --check .
+.venv/bin/mypy .
 
-# Full backend suite; integration tests may download/build Olist data
-pytest -q
+# Full backend suite; no Olist download is required
+.venv/bin/pytest -q
 
 # Frontend quality gates
 cd frontend
@@ -168,7 +164,7 @@ npm run test:e2e
 ```
 
 Choose checks based on the change. Python domain changes normally require focused pytest plus
-Ruff, mypy, and the non-integration suite. React changes require TypeScript, lint, build, and a
+Ruff, mypy, and the full backend suite. React changes require TypeScript, lint, build, and a
 relevant browser flow. Cross-layer contract changes require both sides and end-to-end verification.
 
 ## Documentation and Decision Records
@@ -186,8 +182,8 @@ relevant browser flow. Cross-layer contract changes require both sides and end-t
   durable or shared across instances.
 - The product does not yet provide production authentication, tenant isolation, RBAC, durable
   storage, billing, backups, or full operational monitoring.
-- The Olist startup path can affect generic-product startup and should not be mistaken for a
-  customer-data architecture.
+- The retired Olist benchmark is not part of the running product; its historical results do not
+  validate generic-business forecasts.
 - Real-business demand-forecast validation remains pending; public and synthetic evaluations prove
   specific properties but do not replace that checkpoint.
 - Supported document ingestion is intentionally bounded; do not claim arbitrary PDF/DOC support

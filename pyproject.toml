@@ -20,7 +20,7 @@ known-first-party = ["api", "config", "src"]
 
 [tool.mypy]
 python_version = "3.12"
-# pandas/sklearn/kagglehub ship no usable stubs; type-checking our own code is
+# pandas/sklearn ship no usable stubs; type-checking our own code is
 # the goal, not vendoring third-party type definitions.
 ignore_missing_imports = true
 warn_unused_ignores = true
@@ -38,6 +38,3 @@ testpaths = ["tests"]
 # ModuleNotFoundError. `python -m pytest` works around it by luck (it always
 # prepends cwd), which is how this went unnoticed locally.
 pythonpath = ["."]
-markers = [
-    "integration: builds the real dataset (slow, needs network on first run)",
-]
