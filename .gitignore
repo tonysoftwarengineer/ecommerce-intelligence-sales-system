@@ -1,4 +1,4 @@
-# Raw data (large, re-downloadable via kagglehub; never commit)
+# Local datasets, evaluation output, and private traces (never commit)
 data/
 
 # Python
