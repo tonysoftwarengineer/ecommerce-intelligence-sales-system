@@ -4,7 +4,7 @@ import { downloadUrl } from "../api";
 import type { GenericAnalysisResponse } from "../types";
 import { createCurrencyFormatter, formatCount, percentChange } from "../utils";
 import { BreakdownBarChart } from "./BreakdownBarChart";
-import { DashboardHeader } from "./DashboardShell";
+import { DashboardLayout, type DashboardSectionGroup } from "./DashboardShell";
 import { DeltaBadge } from "./DeltaBadge";
 import { DiagnosticIntelligence } from "./DiagnosticIntelligence";
 import { EvidenceSearchPanel } from "./EvidenceSearchPanel";
@@ -45,34 +45,38 @@ export function BusinessDashboard({
   const forecastSubtitle = forecastDescription(analysis);
 
   return (
-    <div className="page">
-      <DashboardHeader
-        title={isSample ? "Harbor Home · sample sales" : "Your sales dashboard"}
-        period={period}
-        context={`${analysis.currency} · ${analysis.canonical_rows.toLocaleString()} valid rows`}
-        onBack={onBack}
-        actions={
-          <div className="dashboard-actions">
-            {analysis.available_currencies.length > 1 ? (
-              <label className="currency-switcher">
-                <span>Currency</span>
-                <select
-                  value={analysis.currency}
-                  onChange={(event) => onCurrencyChange(event.target.value)}
-                >
-                  {analysis.available_currencies.map((currency) => (
-                    <option value={currency} key={currency}>{currency}</option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-            <button type="button" className="button button--small" onClick={onNewDataset}>
-              Analyze another CSV
-            </button>
-          </div>
-        }
-      />
-
+    <DashboardLayout
+      eyebrow={isSample ? "Your sales dashboard" : undefined}
+      title={isSample ? "Harbor Home · sample sales" : "Your sales dashboard"}
+      subtitle={[
+        period,
+        analysis.currency,
+        `${analysis.canonical_rows.toLocaleString()} valid rows`,
+      ].filter(Boolean).join(" · ")}
+      datasetLabel={isSample ? "Harbor Home · fictional sample" : analysis.filename}
+      groups={DASHBOARD_SECTIONS}
+      onBack={onBack}
+      headerActions={
+        analysis.available_currencies.length > 1 ? (
+          <label className="currency-switcher">
+            <span>Currency</span>
+            <select
+              value={analysis.currency}
+              onChange={(event) => onCurrencyChange(event.target.value)}
+            >
+              {analysis.available_currencies.map((currency) => (
+                <option value={currency} key={currency}>{currency}</option>
+              ))}
+            </select>
+          </label>
+        ) : null
+      }
+      navActions={
+        <button type="button" className="button button--secondary" onClick={onNewDataset}>
+          Analyze another CSV
+        </button>
+      }
+    >
       <div className="analysis-strip" role="status">
         <span className="analysis-strip__file">{analysis.filename}</span>
         <span>{analysis.source_rows.toLocaleString()} rows in file</span>
@@ -85,30 +89,49 @@ export function BusinessDashboard({
 
       <DataQualityPanel analysis={analysis} />
 
-      <section className="business-kpis stagger" style={{ "--i": 0 } as React.CSSProperties}>
-        <KpiCard label="Net Revenue" value={analysis.kpis.net_revenue} format={wholeMoney} hero>
-          <Sparkline values={months.map((month) => month.revenue)} width={180} height={40} />
-          <DeltaBadge percent={delta} caption="latest revenue vs prior month" />
-        </KpiCard>
-        <KpiCard label="Gross Sales" value={analysis.kpis.gross_revenue} format={money} />
-        <KpiCard label="Discounts" value={analysis.kpis.discount_amount} format={money} />
-        <KpiCard label="Refunds" value={analysis.kpis.refund_amount} format={money}>
-          <span className="kpi__note">Shown separately from gross sales</span>
-        </KpiCard>
-        <KpiCard label="Pending Sales" value={analysis.kpis.pending_value} format={money}>
-          <span className="kpi__note">Not included in recognized revenue</span>
-        </KpiCard>
-        <KpiCard label="Average Order Value" value={analysis.kpis.average_order_value} format={money}>
-          <span className="kpi__note">Net revenue per recognized order, including returns</span>
-        </KpiCard>
-        <KpiCard label="Orders" value={analysis.kpis.order_count} format={formatCount} />
+      <section
+        id="key-numbers"
+        className="dash-section stagger"
+        aria-labelledby="key-numbers-heading"
+        style={{ "--i": 0 } as React.CSSProperties}
+      >
+        <h2 id="key-numbers-heading" className="dash-section__title">Key numbers</h2>
+        <div className="business-kpis">
+          <KpiCard label="Net revenue" value={analysis.kpis.net_revenue} format={wholeMoney} hero>
+            <Sparkline values={months.map((month) => month.revenue)} width={180} height={40} />
+            <DeltaBadge percent={delta} caption="latest revenue vs prior month" />
+          </KpiCard>
+          <KpiCard label="Orders" value={analysis.kpis.order_count} format={formatCount}>
+            <span className="kpi__note">Recognized orders</span>
+          </KpiCard>
+          <KpiCard label="Average order value" value={analysis.kpis.average_order_value} format={money}>
+            <span className="kpi__note">Net revenue per recognized order, including returns</span>
+          </KpiCard>
+          <KpiCard label="Gross sales" value={analysis.kpis.gross_revenue} format={money}>
+            <span className="kpi__note">Before discounts and refunds</span>
+          </KpiCard>
+        </div>
+        <dl className="kpi-chips">
+          <KpiChip label="Discounts" value={money(analysis.kpis.discount_amount)} />
+          <KpiChip
+            label="Refunds"
+            value={money(analysis.kpis.refund_amount)}
+            note="shown separately from gross sales"
+          />
+          <KpiChip
+            label="Pending sales"
+            value={money(analysis.kpis.pending_value)}
+            note="not included in recognized revenue"
+          />
+        </dl>
       </section>
 
-      <section className="stagger" style={{ "--i": 1 } as React.CSSProperties}>
-        <DiagnosticIntelligence diagnostics={analysis.diagnostics} formatMoney={money} />
-      </section>
-
-      <section className="stagger" style={{ "--i": 2 } as React.CSSProperties}>
+      <section
+        id="trend"
+        className="dash-section stagger"
+        aria-label="Revenue trend"
+        style={{ "--i": 1 } as React.CSSProperties}
+      >
         <RevenueChart
           months={months}
           forecast={analysis.forecast.forecast}
@@ -118,65 +141,90 @@ export function BusinessDashboard({
         />
       </section>
 
-      <section className="grid stagger" style={{ "--i": 3 } as React.CSSProperties}>
-        {analysis.capabilities.category_analysis ? (
-          <BreakdownBarChart
-            title="Top Categories"
-            subtitle="By net revenue"
-            data={analysis.top_categories.map((row) => ({
-              label: row.category,
-              revenue: row.revenue,
-            }))}
-            formatValue={money}
-            formatCompact={compactMoney}
-          />
-        ) : (
-          <UnavailableCard
-            title="Category analysis unavailable"
-            message="Map a product category column in your next upload to unlock this view."
-          />
-        )}
+      <section
+        id="breakdowns"
+        className="dash-section stagger"
+        aria-labelledby="breakdowns-heading"
+        style={{ "--i": 2 } as React.CSSProperties}
+      >
+        <h2 id="breakdowns-heading" className="dash-section__title">Categories and regions</h2>
+        <div className="grid">
+          {analysis.capabilities.category_analysis ? (
+            <BreakdownBarChart
+              title="Top Categories"
+              subtitle="By net revenue"
+              data={analysis.top_categories.map((row) => ({
+                label: row.category,
+                revenue: row.revenue,
+              }))}
+              formatValue={money}
+              formatCompact={compactMoney}
+            />
+          ) : (
+            <UnavailableCard
+              title="Category analysis unavailable"
+              message="Map a product category column in your next upload to unlock this view."
+            />
+          )}
 
-        {analysis.capabilities.regional_analysis ? (
-          <BreakdownBarChart
-            title="Revenue by Region"
-            subtitle="Top regions by net revenue"
-            data={analysis.revenue_by_region.map((row) => ({
-              label: row.region,
-              revenue: row.revenue,
-            }))}
-            formatValue={money}
-            formatCompact={compactMoney}
-          />
-        ) : (
-          <UnavailableCard
-            title="Regional analysis unavailable"
-            message="Map a state or region column in your next upload to unlock this view."
-          />
-        )}
+          {analysis.capabilities.regional_analysis ? (
+            <BreakdownBarChart
+              title="Revenue by Region"
+              subtitle="Top regions by net revenue"
+              data={analysis.revenue_by_region.map((row) => ({
+                label: row.region,
+                revenue: row.revenue,
+              }))}
+              formatValue={money}
+              formatCompact={compactMoney}
+            />
+          ) : (
+            <UnavailableCard
+              title="Regional analysis unavailable"
+              message="Map a state or region column in your next upload to unlock this view."
+            />
+            )}
+        </div>
       </section>
 
-      <section className="grid stagger" style={{ "--i": 4 } as React.CSSProperties}>
-        <TopBusinessCustomers customers={analysis.top_customers} formatValue={money} />
-        <FinancialIntegrity analysis={analysis} formatValue={money} />
-      </section>
-
-      <section className="grid stagger" style={{ "--i": 5 } as React.CSSProperties}>
-        <ForecastEvidence analysis={analysis} formatValue={money} />
+      <section
+        id="customers"
+        className="dash-section stagger"
+        aria-labelledby="customers-heading"
+        style={{ "--i": 3 } as React.CSSProperties}
+      >
+        <h2 id="customers-heading" className="dash-section__title">Customers and revenue math</h2>
+        <div className="grid">
+          <TopBusinessCustomers customers={analysis.top_customers} formatValue={money} />
+          <FinancialIntegrity analysis={analysis} formatValue={money} />
+        </div>
         <OperationalSignals analysis={analysis} formatValue={money} />
       </section>
 
-      <section className="stagger" style={{ "--i": 6 } as React.CSSProperties}>
+      <div id="changes" className="dash-section stagger" style={{ "--i": 4 } as React.CSSProperties}>
+        <DiagnosticIntelligence diagnostics={analysis.diagnostics} formatMoney={money} />
+      </div>
+
+      <section
+        id="estimate"
+        className="dash-section stagger"
+        aria-label="Revenue estimate"
+        style={{ "--i": 5 } as React.CSSProperties}
+      >
+        <ForecastEvidence analysis={analysis} formatValue={money} />
+      </section>
+
+      <div id="demand" className="dash-section stagger" style={{ "--i": 6 } as React.CSSProperties}>
         <ProductDemandPanel
           analysisId={analysis.analysis_id}
           sourceDataDecisionReady={analysis.data_quality.decision_ready}
           hasProductCategories={analysis.capabilities.category_analysis}
         />
-      </section>
+      </div>
 
-      <section className="stagger" style={{ "--i": 7 } as React.CSSProperties}>
+      <div id="documents" className="dash-section stagger" style={{ "--i": 7 } as React.CSSProperties}>
         <EvidenceSearchPanel analysisId={analysis.analysis_id} isSample={isSample} />
-      </section>
+      </div>
 
       {analysis.warnings.length > 0 ? (
         <aside className="notice notice--warning">
@@ -184,6 +232,50 @@ export function BusinessDashboard({
           <ul>{analysis.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
         </aside>
       ) : null}
+    </DashboardLayout>
+  );
+}
+
+// Order matches the page, so the highlighted link always moves downward as the
+// visitor scrolls.
+const DASHBOARD_SECTIONS: DashboardSectionGroup[] = [
+  {
+    label: "Overview",
+    sections: [
+      { id: "data-check", label: "Data check" },
+      { id: "key-numbers", label: "Key numbers" },
+    ],
+  },
+  {
+    label: "Sales",
+    sections: [
+      { id: "trend", label: "Revenue trend" },
+      { id: "breakdowns", label: "Categories and regions" },
+      { id: "customers", label: "Customers and revenue math" },
+    ],
+  },
+  {
+    label: "Insights",
+    sections: [
+      { id: "changes", label: "What changed" },
+      { id: "estimate", label: "Revenue estimate" },
+      { id: "demand", label: "Product demand", tag: "Preview" },
+    ],
+  },
+  {
+    label: "Documents",
+    sections: [{ id: "documents", label: "Ask about your documents", tag: "Beta" }],
+  },
+];
+
+function KpiChip({ label, value, note }: { label: string; value: string; note?: string }) {
+  return (
+    <div className="kpi-chip">
+      <dt>{label}</dt>
+      <dd>
+        {value}
+        {note ? <span className="kpi-chip__note"> · {note}</span> : null}
+      </dd>
     </div>
   );
 }
@@ -208,7 +300,11 @@ function DataQualityPanel({ analysis }: { analysis: GenericAnalysisResponse }) {
       ? "Some rows need attention"
       : "What data was used";
   return (
-    <section className={`data-quality-panel data-quality-panel--${quality.status}`} aria-labelledby="data-quality-heading">
+    <section
+      id="data-check"
+      className={`dash-section data-quality-panel data-quality-panel--${quality.status}`}
+      aria-labelledby="data-quality-heading"
+    >
       <div className="data-quality-panel__head">
         <div>
           <p className="eyebrow">Data check</p>

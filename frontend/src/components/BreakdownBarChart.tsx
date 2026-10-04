@@ -34,7 +34,7 @@ export function BreakdownBarChart({
           <YAxis
             type="category"
             dataKey="label"
-            tick={{ fontSize: 11.5, fill: "rgba(255,255,255,0.6)" }}
+            tick={{ fontSize: 12, fill: "rgba(255,255,255,0.64)" }}
             tickLine={false}
             axisLine={false}
             width={138}
@@ -56,8 +56,8 @@ export function BreakdownBarChart({
               position="right"
               offset={10}
               formatter={(value: unknown) => formatCompact(Number(value))}
-              fill="rgba(255,255,255,0.55)"
-              fontSize={11}
+              fill="rgba(255,255,255,0.64)"
+              fontSize={12}
             />
           </Bar>
         </BarChart>

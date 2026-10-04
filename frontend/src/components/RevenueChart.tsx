@@ -102,14 +102,14 @@ export function RevenueChart({
           <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
           <XAxis
             dataKey="month"
-            tick={{ fontSize: 11, fill: "rgba(255,255,255,0.38)" }}
+            tick={{ fontSize: 12, fill: "rgba(255,255,255,0.56)" }}
             tickLine={false}
             axisLine={{ stroke: "rgba(255,255,255,0.07)" }}
             interval="preserveStartEnd"
             minTickGap={24}
           />
           <YAxis
-            tick={{ fontSize: 11, fill: "rgba(255,255,255,0.38)" }}
+            tick={{ fontSize: 12, fill: "rgba(255,255,255,0.56)" }}
             tickLine={false}
             axisLine={false}
             tickFormatter={formatAxis}
@@ -136,8 +136,8 @@ export function RevenueChart({
               label={{
                 value: `Forecast begins after ${boundary}`,
                 position: "insideTopRight",
-                fill: "rgba(255,255,255,0.38)",
-                fontSize: 11,
+                fill: "rgba(255,255,255,0.56)",
+                fontSize: 12,
                 offset: 10,
               }}
             />

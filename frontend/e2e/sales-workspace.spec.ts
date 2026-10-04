@@ -400,6 +400,55 @@ test("walks a fictional online retailer from sales upload to demand preview and 
   await expect(panel.getByText(/so we did not guess/)).toBeVisible();
 });
 
+test("jumps between dashboard sections from the sidebar", async ({ page }) => {
+  await openSampleDashboard(page);
+  const nav = page.getByRole("navigation", { name: "Dashboard sections" });
+  await expect(nav.getByRole("link", { name: "Data check" })).toHaveAttribute("aria-current", "true");
+  await nav.getByRole("link", { name: /Product demand/ }).click();
+  await expect(page).toHaveURL(/#demand$/);
+  await expect(nav.getByRole("link", { name: /Product demand/ })).toHaveAttribute("aria-current", "true");
+});
+
+test.describe("on a phone", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("opens, uses, and closes the sections menu with the keyboard", async ({ page }) => {
+    await openSampleDashboard(page);
+    const links = page.locator("#dashboard-section-links");
+    await expect(links).toBeHidden();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+
+    await page.getByRole("button", { name: "Sections" }).focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("button", { name: "Close" })).toHaveAttribute("aria-expanded", "true");
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("link", { name: "Data check" })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(links).toBeHidden();
+    await expect(page.getByRole("button", { name: "Sections" })).toBeFocused();
+
+    await page.keyboard.press("Enter");
+    await page.getByRole("link", { name: "Revenue estimate" }).focus();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/#estimate$/);
+    await expect(links).toBeHidden();
+    await expect(page.getByRole("heading", { name: "About the revenue estimate" })).toBeInViewport();
+  });
+});
+
+async function openSampleDashboard(page: Page): Promise<void> {
+  await page.goto("/");
+  await page.getByRole("button", { name: /Try a sample retailer/ }).click();
+  await page.getByRole("button", { name: "Apply recommendations, then review" }).click();
+  await page.getByRole("button", { name: "Check column matches" }).click();
+  await expect(page.getByText("Column matches look good")).toBeVisible();
+  await page.getByRole("button", { name: "Check sales rows" }).click();
+  await page.getByRole("button", { name: "See sales dashboard" }).click();
+  await expect(page.getByRole("heading", { name: "Harbor Home · sample sales" })).toBeVisible();
+  // The setup steps are long; the report must open at its top, not their scroll position.
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+}
+
 async function openUploadWorkspace(page: Page): Promise<void> {
   await page.goto("/");
   await page.getByRole("button", { name: /Upload a sales CSV/ }).click();

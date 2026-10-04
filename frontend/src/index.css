@@ -13,17 +13,23 @@
   --border: rgba(255, 255, 255, 0.07);
   --border-strong: rgba(255, 255, 255, 0.12);
 
-  /* Text — 85-92% white, never pure #fff */
+  /* Text — 85-92% white, never pure #fff. Muted text still clears the 4.5:1
+     WCAG minimum on --surface (about 6:1); 38% did not (about 3.5:1). */
   --text-primary: rgba(255, 255, 255, 0.92);
-  --text-secondary: rgba(255, 255, 255, 0.6);
-  --text-muted: rgba(255, 255, 255, 0.38);
+  --text-secondary: rgba(255, 255, 255, 0.64);
+  --text-muted: rgba(255, 255, 255, 0.56);
+
+  /* Type scale: every font-size uses one of these. 12px is the floor, kept for
+     short labels; running text starts at 13px. */
+  --text-xs: 0.75rem; /* 12px labels */
+  --text-sm: 0.8125rem; /* 13px notes, captions */
+  --text-base: 0.9375rem; /* 15px body */
+  --text-md: 1.0625rem; /* 17px card headings */
+  --text-lg: 1.25rem; /* 20px section headings */
+  --text-xl: 2rem; /* 32px page title */
 
   /* Data — validated against surface #1a1a19 via validate_palette.js */
   --series-1: #3987e5;
-  --seg-1: #3987e5;
-  --seg-2: #d95926;
-  --seg-3: #199e70;
-  --seg-4: #c98500;
 
   --positive: #199e70;
   --negative: #d95926;
