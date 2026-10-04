@@ -29,6 +29,73 @@ When updating, keep these headings and replace only the factual content beneath 
 6. Next recommended work
 7. Decisions requiring the user
 
+## Active work assignment — 2026-10-04 (two lanes; read before editing)
+
+The user assigned **Phase 2 Stage B to Codex** and the **UI redesign to Claude Code**, in parallel.
+Both touch the frontend, so the lanes are strict:
+
+- **Codex owns all repository edits until Stage B is committed and pushed.**
+- **Claude Code makes no repository edits during Stage B.** It reviews the live screens and
+  prepares a UI design proposal outside the repo for the user to approve, then implements it only
+  after Stage B is pushed.
+- When Stage B is pushed and CI is green, Codex deletes this section, records Stage B in the
+  snapshot below, and tells the user so Claude Code can begin.
+
+### Codex: Stage B brief (Olist removal) — facts verified by grep on 2026-10-04 at 6002d4d
+
+Goal: remove the Olist demo and benchmark code, which the live app no longer reaches (Stage A,
+da4f757), without breaking anything the generic product uses. Discuss with the user before
+deleting anything not listed here.
+
+1. **Delete** `src/ingest.py`, `src/pipeline.py`, `src/stages/`, `src/models/`, `api/cache.py`, and
+   tests `test_analyze.py`, `test_clean.py`, `test_join.py`, `test_forecast.py`,
+   `test_segmentation.py`, `test_serializers.py` (all three of its tests cover Olist serializers).
+2. **`api/serializers.py`: partial.** Remove `month_series_to_records`,
+   `category_series_to_records`, `customer_series_to_records`, `state_series_to_records`,
+   `report_to_response_dict`, `segment_summary_records`, and the `src.models` / `src.stages`
+   imports. **Keep** `dataframe_sample_records`, `privacy_safe_preview_records`,
+   `_is_direct_identifier_column`, `_mask_preview_value`, `dataframe_to_csv_bytes` (used by
+   `api/routes.py`; CSV-preview masking is tested in `tests/test_api.py`).
+3. **`api/schemas.py`:** remove `MonthlyRevenue`, `CategoryRevenue`, `CustomerSpend`,
+   `StateRevenue`, `ReportResponse`, `ForecastPoint`, `ForecastResponse`, `CustomerSegment`,
+   `SegmentSummary`, `SegmentsResponse` (none is referenced outside `schemas.py`).
+4. **`config.py`:** remove `KAGGLE_DATASET`, `TABLE_FILES`, `DATA_DIR` (only `src/ingest.py` used them).
+5. **Dependencies:** remove `kagglehub` and `matplotlib` from `requirements.txt`.
+   **Keep `scikit-learn`** (`src/rag/index.py` TF-IDF retrieval) **and `openpyxl`**
+   (`pd.read_excel` in `src/product_demand/public_data_evaluation.py` and
+   `scripts/profile_uci_product_demand.py`). Regenerate `constraints.txt` from a fresh Python 3.12
+   venv following its header (CPU `torch` first, then `pip install -r requirements-dev.txt`, full
+   suite green, `pip freeze`, restore the header). Record the `pip-audit -r constraints.txt` count
+   before and after (it is 11 findings in 3 packages now).
+6. **Frontend: deletions only.** Delete `OlistDashboard.tsx`, `CategoryBarChart.tsx`,
+   `StateBarChart.tsx`, `TopCustomersTable.tsx`, `SegmentBreakdown.tsx`; remove
+   `fetchReport` / `fetchForecast` / `fetchSegments` from `api.ts` and the now-unused Olist types
+   from `types.ts`. **Keep** `RevenueChart`, `ChartTooltip`, `BreakdownBarChart`, `KpiCard`,
+   `Sparkline`, `DeltaBadge`, `hooks/useCountUp.ts`, and the TypeScript `ForecastPoint` type — the
+   live dashboard uses them. Let `npx tsc --noEmit` confirm.
+7. **Test marker:** remove the `integration` marker from `pyproject.toml`; change the CI unit-test
+   step to `pytest -q` and update `AGENTS.md` Verification Commands to match.
+8. **Docs:** in `AGENTS.md`, update the Purpose sentence about the Olist path, the System Map
+   "Olist demo" line, and the "Olist startup path" production limitation. Add
+   `docs/architecture/ADR-017-retire-olist-demo.md` (context, decision, what was kept and why,
+   consequences). In `README.md`, rewrite "What it does" around the product, keeping the Olist
+   results (14.2% MAPE, RFM finding) only as a short history note; fix the setup note,
+   `KAGGLE_DATASET` config row, and tests note. Update Olist references in
+   `docs/ARCHITECTURE_CASE_STUDY.md`. Delete `docs/dashboard.png` if nothing references it.
+
+**Do not edit** `frontend/src/App.css`, `frontend/src/index.css`, or any live screen component
+(`App.tsx`, `SourceSelection`, `BusinessWorkspace`, `BusinessDashboard`,
+`DiagnosticIntelligence`, `ProductDemandPanel`, `EvidenceSearchPanel`, `DashboardShell`). Leave any
+now-unused Olist CSS in `App.css`; the redesign will remove it. **Never stage** the user's four
+PNGs in `tests/fixtures/product_demand_csv_pack/`; stage files by explicit path.
+
+**Verify before pushing:** `.venv/bin/ruff check .`, `.venv/bin/ruff format --check .`,
+`.venv/bin/mypy .`, `.venv/bin/pytest -q`, `npx tsc --noEmit`, `npm run lint`, `npm run build`,
+and `npm run test:e2e` (it now refuses to reuse an existing server; if a port is busy, use
+`E2E_API_PORT`/`E2E_FRONTEND_PORT`). Also grep that nothing references the deleted modules,
+functions, or `kagglehub`/`matplotlib`. Commit as one change, or two (code, then docs). Push and
+confirm CI's four jobs pass, including `docker`.
+
 ## Current Snapshot
 
 ### Updater and date
@@ -301,7 +368,7 @@ Pre-testing hardening is complete (user-approved order; commits dec59bb, a9750c8
 
 ### Next recommended work
 
-1. **Phase 2 Stage B: remove the Olist leftovers** (one commit). Delete the dead code listed under
+1. **Phase 2 Stage B (assigned to Codex; full brief in "Active work assignment" above).** Delete the dead code listed under
    Current limitations, drop `kagglehub` (and `matplotlib`/`openpyxl`/`scikit-learn` only if
    nothing else imports them) and regenerate `constraints.txt` from a fresh 3.12 environment,
    remove the now-unused `integration` pytest marker, update `AGENTS.md` (it calls Olist a fixed
