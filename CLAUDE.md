@@ -29,78 +29,11 @@ When updating, keep these headings and replace only the factual content beneath 
 6. Next recommended work
 7. Decisions requiring the user
 
-## Active work assignment — 2026-10-04 (two lanes; read before editing)
-
-The user assigned **Phase 2 Stage B to Codex** and the **UI redesign to Claude Code**, in parallel.
-Both touch the frontend, so the lanes are strict:
-
-- **Codex owns all repository edits until Stage B is committed and pushed.**
-- **Claude Code makes no repository edits during Stage B.** It reviews the live screens and
-  prepares a UI design proposal outside the repo for the user to approve, then implements it only
-  after Stage B is pushed.
-- When Stage B is pushed and CI is green, Codex deletes this section, records Stage B in the
-  snapshot below, and tells the user so Claude Code can begin.
-
-### Codex: Stage B brief (Olist removal) — facts verified by grep on 2026-10-04 at 6002d4d
-
-Goal: remove the Olist demo and benchmark code, which the live app no longer reaches (Stage A,
-da4f757), without breaking anything the generic product uses. Discuss with the user before
-deleting anything not listed here.
-
-1. **Delete** `src/ingest.py`, `src/pipeline.py`, `src/stages/`, `src/models/`, `api/cache.py`, and
-   tests `test_analyze.py`, `test_clean.py`, `test_join.py`, `test_forecast.py`,
-   `test_segmentation.py`, `test_serializers.py` (all three of its tests cover Olist serializers).
-2. **`api/serializers.py`: partial.** Remove `month_series_to_records`,
-   `category_series_to_records`, `customer_series_to_records`, `state_series_to_records`,
-   `report_to_response_dict`, `segment_summary_records`, and the `src.models` / `src.stages`
-   imports. **Keep** `dataframe_sample_records`, `privacy_safe_preview_records`,
-   `_is_direct_identifier_column`, `_mask_preview_value`, `dataframe_to_csv_bytes` (used by
-   `api/routes.py`; CSV-preview masking is tested in `tests/test_api.py`).
-3. **`api/schemas.py`:** remove `MonthlyRevenue`, `CategoryRevenue`, `CustomerSpend`,
-   `StateRevenue`, `ReportResponse`, `ForecastPoint`, `ForecastResponse`, `CustomerSegment`,
-   `SegmentSummary`, `SegmentsResponse` (none is referenced outside `schemas.py`).
-4. **`config.py`:** remove `KAGGLE_DATASET`, `TABLE_FILES`, `DATA_DIR` (only `src/ingest.py` used them).
-5. **Dependencies:** remove `kagglehub` and `matplotlib` from `requirements.txt`.
-   **Keep `scikit-learn`** (`src/rag/index.py` TF-IDF retrieval) **and `openpyxl`**
-   (`pd.read_excel` in `src/product_demand/public_data_evaluation.py` and
-   `scripts/profile_uci_product_demand.py`). Regenerate `constraints.txt` from a fresh Python 3.12
-   venv following its header (CPU `torch` first, then `pip install -r requirements-dev.txt`, full
-   suite green, `pip freeze`, restore the header). Record the `pip-audit -r constraints.txt` count
-   before and after (it is 11 findings in 3 packages now).
-6. **Frontend: deletions only.** Delete `OlistDashboard.tsx`, `CategoryBarChart.tsx`,
-   `StateBarChart.tsx`, `TopCustomersTable.tsx`, `SegmentBreakdown.tsx`; remove
-   `fetchReport` / `fetchForecast` / `fetchSegments` from `api.ts` and the now-unused Olist types
-   from `types.ts`. **Keep** `RevenueChart`, `ChartTooltip`, `BreakdownBarChart`, `KpiCard`,
-   `Sparkline`, `DeltaBadge`, `hooks/useCountUp.ts`, and the TypeScript `ForecastPoint` type — the
-   live dashboard uses them. Let `npx tsc --noEmit` confirm.
-7. **Test marker:** remove the `integration` marker from `pyproject.toml`; change the CI unit-test
-   step to `pytest -q` and update `AGENTS.md` Verification Commands to match.
-8. **Docs:** in `AGENTS.md`, update the Purpose sentence about the Olist path, the System Map
-   "Olist demo" line, and the "Olist startup path" production limitation. Add
-   `docs/architecture/ADR-017-retire-olist-demo.md` (context, decision, what was kept and why,
-   consequences). In `README.md`, rewrite "What it does" around the product, keeping the Olist
-   results (14.2% MAPE, RFM finding) only as a short history note; fix the setup note,
-   `KAGGLE_DATASET` config row, and tests note. Update Olist references in
-   `docs/ARCHITECTURE_CASE_STUDY.md`. Delete `docs/dashboard.png` if nothing references it.
-
-**Do not edit** `frontend/src/App.css`, `frontend/src/index.css`, or any live screen component
-(`App.tsx`, `SourceSelection`, `BusinessWorkspace`, `BusinessDashboard`,
-`DiagnosticIntelligence`, `ProductDemandPanel`, `EvidenceSearchPanel`, `DashboardShell`). Leave any
-now-unused Olist CSS in `App.css`; the redesign will remove it. **Never stage** the user's four
-PNGs in `tests/fixtures/product_demand_csv_pack/`; stage files by explicit path.
-
-**Verify before pushing:** `.venv/bin/ruff check .`, `.venv/bin/ruff format --check .`,
-`.venv/bin/mypy .`, `.venv/bin/pytest -q`, `npx tsc --noEmit`, `npm run lint`, `npm run build`,
-and `npm run test:e2e` (it now refuses to reuse an existing server; if a port is busy, use
-`E2E_API_PORT`/`E2E_FRONTEND_PORT`). Also grep that nothing references the deleted modules,
-functions, or `kagglehub`/`matplotlib`. Commit as one change, or two (code, then docs). Push and
-confirm CI's four jobs pass, including `docker`.
-
 ## Current Snapshot
 
 ### Updater and date
 
-Claude Code — 2026-10-04 (pre-testing hardening: answer quota protection, upload concurrency fix, tester feedback)
+Codex — 2026-10-04 (Phase 2 Stage B Olist retirement complete and CI verified)
 
 ### Completed phase
 
@@ -157,9 +90,9 @@ non-root user with a health check, test/lint tooling is out of the production im
 RAG document uploads are rate-limited per anonymous guest.
 
 The Python runtime upgrade is complete ([ADR-016](docs/architecture/ADR-016-python-3-12-runtime-and-dependency-lock.md);
-commits 0676dda, 315bd5d): Python 3.12 everywhere, a `constraints.txt` lock of all 120 packages
+commits 0676dda, 315bd5d): Python 3.12 everywhere, an initial `constraints.txt` lock of 120 packages
 used by Docker, CI, and `pip-audit`, CPU-only `torch`, and FastAPI 0.141.1 / Starlette 1.7.0.
-Known Python vulnerabilities fell from 57 to 11. CI now also builds and smoke-tests the
+Known Python vulnerabilities fell from 57 to 11 at the time of that upgrade. CI now also builds and smoke-tests the
 production image (commit 327a0d0). All pre-deploy hardening is done.
 
 Phase 2 Stage A is complete (commit da4f757; built by Codex, finished by Claude Code). The landing
@@ -167,8 +100,15 @@ page offers "Try a sample retailer", which loads `frontend/public/demo/retailer_
 clearly fictional shop, "Harbor Home") into the same upload -> mapping -> validation -> dashboard
 flow as a real upload; the user chose this guided path over a direct-to-dashboard shortcut. The
 API no longer downloads the Olist dataset at startup or serves `/report`, `/forecast`,
-`/segments`; `/health` returns `{"status": "ok"}`. The Olist research code and its unit tests
-remain for Stage B.
+`/segments`; `/health` returns `{"status": "ok"}`.
+
+Phase 2 Stage B is complete (commit 90dfbfb;
+[ADR-017](docs/architecture/ADR-017-retire-olist-demo.md)). The unused Olist console entry,
+pipeline, models, API response types, and frontend view were removed, as were
+`kagglehub` and `matplotlib`. The live CSV serializers, shared charts, `scikit-learn` for
+TF-IDF, and `openpyxl` for offline evaluations remain. The generic product, forecast trust
+policy, and RAG behavior did not change. `constraints.txt` was regenerated from a fresh
+Python 3.12 environment after its full suite passed; it now pins 113 packages.
 
 Pre-testing hardening is complete (user-approved order; commits dec59bb, a9750c8, 80ef5d9):
 - AI answer quota: an app-wide daily budget (`RAG_ANSWER_DAILY_BUDGET`, default 100 per UTC day)
@@ -185,6 +125,8 @@ Pre-testing hardening is complete (user-approved order; commits dec59bb, a9750c8
 
 - The generic business workflow remains: CSV upload, explicit mapping, validation and quarantine,
   canonical transformation, analytics, diagnostics, and capability-gated dashboard features.
+- Olist-only code and the root `main.py` console entry are retired. The live entry point remains
+  `api.main:app`. Historical Olist research results remain in the README, labelled as history.
 - Product demand remains a seven-day, units-only planning preview. The DataCo audit investigated
   low coverage without changing its methods, eligibility rules, API, or dashboard trust gate.
 - RAG Phase 1 retrieval is frozen and independently usable. Phase 2 adds claim-level grounded
@@ -193,7 +135,7 @@ Pre-testing hardening is complete (user-approved order; commits dec59bb, a9750c8
 - Deployment and portfolio documentation are committed. Use the linked reports for detailed
   findings rather than copying evidence into this snapshot.
 - CI (`.github/workflows/ci.yml`) has four jobs, all on Python 3.12 with `-c constraints.txt`
-  and CPU-only `torch`: `backend` (lint, format check, mypy, unit tests, `pip-audit` of
+  and CPU-only `torch`: `backend` (lint, format check, mypy, full pytest, `pip-audit` of
   `constraints.txt`), `frontend`
   (tsc, `npm run lint`, build, `npm audit`), `e2e` (needs `backend` + `frontend`; Playwright
   against the fake RAG provider and tfidf retrieval backend, no real key needed), and `docker`
@@ -262,6 +204,13 @@ Pre-testing hardening is complete (user-approved order; commits dec59bb, a9750c8
   fits a 390 px phone at every step and works keyboard-only. The `integration` CI job was removed
   because its only four tests covered the removed Olist endpoints. The Docker image was not
   rebuilt locally because of a slow connection.
+- Phase 2 Stage B: [GitHub Actions run 37221296252](https://github.com/tonysoftwarengineer/ecommerce-intelligence-sales-system/actions/runs/37221296252)
+  on 90dfbfb passed all four jobs: backend, frontend, e2e, and docker. Locally,
+  Ruff, format, mypy, 476 backend tests, TypeScript, frontend lint/build, and
+  eight isolated browser journeys passed. A fresh Python 3.12 environment
+  passed the full backend suite before its resolved versions were frozen;
+  the new lock matches that environment. The four untracked PNG screenshots
+  in `tests/fixtures/product_demand_csv_pack/` were not staged or changed.
 - Phase 1 hardening: GitHub Actions run 36386997515 on 99844a7 passed all four jobs. Locally,
   ruff, format (240 files), mypy (99 files), `pytest -q -m "not integration"` (489 passed,
   4 deselected), and all eight Playwright journeys passed. The image was built and run locally
@@ -338,17 +287,12 @@ Pre-testing hardening is complete (user-approved order; commits dec59bb, a9750c8
 - Sessions, uploads, document indexes, and analysis state are temporary and process-local; this is
   not a production multi-tenant deployment.
 - `mypy` does not check `tests/`; test behavior is enforced by pytest only.
-- The dependency audits remain report-only. The frontend lockfile audits cleanly. The Python
-  audit of `constraints.txt` reports 11 findings in 3 packages, all in the embedding/index stack:
-  `transformers` 4.57.6 (6), `chromadb` 1.5.9 (4, no fixed release), `sentence-transformers`
-  5.1.2 (1). Fixing them needs `sentence-transformers` 5.6+/`transformers` 5, an embedding-stack
-  change that requires its own benchmarked phase. See the triage record.
-- Dead Olist code remains until Stage B: `frontend/src/components/OlistDashboard.tsx` and its
-  four chart components, the `fetchReport`/`fetchForecast`/`fetchSegments` functions in
-  `frontend/src/api.ts`, `api/cache.py`, the Olist response schemas and serializers, and
-  `src/stages`, `src/models`, `src/ingest.py`, `src/pipeline.py` with their unit tests. None is
-  reachable from the live app. `AGENTS.md` and the README's "What it does" section still
-  describe Olist as a benchmark; the README now labels it offline.
+- The dependency audits remain report-only. The frontend lockfile audits cleanly. On
+  2026-10-04, `pip-audit` reported **15 findings in 3 embedding/index packages** before and
+  after Stage B (the earlier snapshot recorded 11; the advisory database changed).
+  This phase did not change `chromadb`, `transformers`, or `sentence-transformers`.
+  Fixes require a separate benchmarked embedding-stack upgrade; see the historical
+  [triage record](docs/evaluation/dependency_security_triage.md).
 - The answer cache, daily budget, and feedback counts are process-local: they reset on restart and
   are not shared across replicas. Feedback votes are visible only via the token-guarded
   observability endpoint; written feedback lives in public GitHub issues.
@@ -368,39 +312,33 @@ Pre-testing hardening is complete (user-approved order; commits dec59bb, a9750c8
 
 ### Next recommended work
 
-1. **Phase 2 Stage B (assigned to Codex; full brief in "Active work assignment" above).** Delete the dead code listed under
-   Current limitations, drop `kagglehub` (and `matplotlib`/`openpyxl`/`scikit-learn` only if
-   nothing else imports them) and regenerate `constraints.txt` from a fresh 3.12 environment,
-   remove the now-unused `integration` pytest marker, update `AGENTS.md` (it calls Olist a fixed
-   demo and benchmark) and add an ADR, since this changes a documented boundary. Rewrite the
-   README's "What it does" around the product, keeping the Olist results only as history.
-2. **UI redesign (design with the user first).** About 60 font sizes are 0.65-0.72rem
+1. **UI redesign (design with the user first; assigned to Claude Code after Stage B).** About 60 font sizes are 0.65-0.72rem
    (~10-11.5 px) and `--text-muted` is white at 38% opacity; there is no navigation. Plan: sidebar
    navigation between dashboard sections, a type scale with a 12-13 px floor and readable
    contrast, and a collapsible mobile nav. Re-run all Playwright journeys plus phone-width and
    keyboard checks.
-3. **Phase 2 deploy.** One replica only (stores are process-local). Set `GUEST_COOKIE_SECURE=true`,
+2. **Phase 2 deploy.** One replica only (stores are process-local). Set `GUEST_COOKIE_SECURE=true`,
    exact `CORS_ORIGINS`, keep `DEVELOPMENT_OBSERVABILITY_ENABLED` off, and verify the guest-session
    cookie works when frontend and API are on different domains. Hosting choice and any paid tier
    are the user's decisions. Then the README rewrite: one-line pitch, live link, short demo video,
    architecture diagram, results table including the failed sparse stratum, honest limitations.
-4. **PDF/HTML document support** as its own phase with an ADR: text extraction only (no OCR),
+3. **PDF/HTML document support** as its own phase with an ADR: text extraction only (no OCR),
    strip HTML scripts and hidden elements (prompt-injection risk), size/page caps, parser CVE
    review, and an evaluation set with real PDFs before claiming support (AGENTS.md rule).
-5. **AI explanation of the Python calculations** (later, own ADR): the model may only narrate
+4. **AI explanation of the Python calculations** (later, own ADR): the model may only narrate
    numbers the code produced, each cited and verified by exact match; it never calculates.
-6. Embedding-stack upgrade (`sentence-transformers`/`transformers`, review `chromadb`) as its own
+5. Embedding-stack upgrade (`sentence-transformers`/`transformers`, review `chromadb`) as its own
    phase, with the frozen retrieval benchmark before and after; clears most remaining findings.
-7. Consider bumping the GitHub Actions versions to clear the Node 20 deprecation warnings.
-8. Obtain and safely prepare a permissioned, anonymized independent-retailer export, then run the
+6. Consider bumping the GitHub Actions versions to clear the Node 20 deprecation warnings.
+7. Obtain and safely prepare a permissioned, anonymized independent-retailer export, then run the
    existing offline evaluator without changing forecast policy after seeing its results.
-9. Propose an offline development-reference audit of alternate passages supporting
+8. Propose an offline development-reference audit of alternate passages supporting
    the same fact, with explicit scope/exception checks. Keep current scores and locked
    references unchanged; version any later scoring change separately. Investigate
    transport reliability and the undiagnosed Groq `400` with bounded diagnostics before
    another provider run. Do not switch models or add hybrid retrieval just to raise
    coverage. Stability/locked runs remain blocked pending complete development evidence.
-10. Treat any cold-start forecasting improvement as a separate user-approved design and evaluation
+9. Treat any cold-start forecasting improvement as a separate user-approved design and evaluation
    phase; do not loosen the live preview rules merely to increase coverage.
 
 ### Decisions requiring the user
