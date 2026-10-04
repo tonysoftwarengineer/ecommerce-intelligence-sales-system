@@ -33,7 +33,7 @@ When updating, keep these headings and replace only the factual content beneath 
 
 ### Updater and date
 
-Codex — 2026-10-04 (Phase 2 Stage B Olist retirement complete and CI verified)
+Claude Code — 2026-10-04 (Stage B reviewed; dashboard UI redesign complete and CI verified)
 
 ### Completed phase
 
@@ -109,6 +109,22 @@ pipeline, models, API response types, and frontend view were removed, as were
 TF-IDF, and `openpyxl` for offline evaluations remain. The generic product, forecast trust
 policy, and RAG behavior did not change. `constraints.txt` was regenerated from a fresh
 Python 3.12 environment after its full suite passed; it now pins 113 packages.
+
+Claude Code reviewed Stage B against its brief (every claim checked with git, gh, and grep): it
+followed the brief, kept out of the frontend files reserved for the redesign, and its recorded
+numbers match CI. Deleting the root `main.py` went beyond the brief and was correct (it imported
+only the deleted pipeline). Three comment slips were fixed in b94d996: the `constraints.txt`
+rebuild recipe now installs CPU-only `torch` like CI and Docker, and two stale comments.
+
+The dashboard UI redesign is complete (c6b680d; user-approved design). One page with a jump-link
+sidebar (Overview: Data check, Key numbers; Sales: Revenue trend, Categories and regions,
+Customers and revenue math; Insights: What changed, Revenue estimate, Product demand; Documents),
+which becomes a "Sections" menu below 1024 px. Every CSS font size uses one scale in `index.css`
+(`--text-xs` 12 px floor to `--text-xl` 32 px); `--text-muted` is 56% white (about 6:1, was 38%,
+about 3.5:1). Key numbers show four cards plus three chips. The dashboard now opens at its top
+(it used to keep the setup page's scroll position, landing visitors near the bottom). Unused
+Olist CSS and colour tokens were removed. The setup wizard and landing page gained the larger
+type scale but kept their layout.
 
 Pre-testing hardening is complete (user-approved order; commits dec59bb, a9750c8, 80ef5d9):
 - AI answer quota: an app-wide daily budget (`RAG_ANSWER_DAILY_BUDGET`, default 100 per UTC day)
@@ -204,6 +220,13 @@ Pre-testing hardening is complete (user-approved order; commits dec59bb, a9750c8
   fits a 390 px phone at every step and works keyboard-only. The `integration` CI job was removed
   because its only four tests covered the removed Olist endpoints. The Docker image was not
   rebuilt locally because of a slow connection.
+- Dashboard redesign: GitHub Actions run 37228957648 on c6b680d passed all four jobs (476 backend
+  tests, 10 browser journeys). Locally: ruff, format, mypy, pytest, tsc, lint, build, and all 10
+  journeys on fresh servers. Two new journeys cover sidebar jump links, the keyboard-only phone
+  menu (Enter opens, Escape closes and returns focus, choosing a link closes it), and the
+  open-at-top fix; with the fix removed they failed (opened 3,972 px and 5,219 px down). A
+  scratch check (not committed) found no text below 12 px and no horizontal scroll at 390 px,
+  and 44 px menu targets.
 - Phase 2 Stage B: [GitHub Actions run 37221296252](https://github.com/tonysoftwarengineer/ecommerce-intelligence-sales-system/actions/runs/37221296252)
   on 90dfbfb passed all four jobs: backend, frontend, e2e, and docker. Locally,
   Ruff, format, mypy, 476 backend tests, TypeScript, frontend lint/build, and
@@ -312,33 +335,28 @@ Pre-testing hardening is complete (user-approved order; commits dec59bb, a9750c8
 
 ### Next recommended work
 
-1. **UI redesign (design with the user first; assigned to Claude Code after Stage B).** About 60 font sizes are 0.65-0.72rem
-   (~10-11.5 px) and `--text-muted` is white at 38% opacity; there is no navigation. Plan: sidebar
-   navigation between dashboard sections, a type scale with a 12-13 px floor and readable
-   contrast, and a collapsible mobile nav. Re-run all Playwright journeys plus phone-width and
-   keyboard checks.
-2. **Phase 2 deploy.** One replica only (stores are process-local). Set `GUEST_COOKIE_SECURE=true`,
+1. **Phase 2 deploy.** One replica only (stores are process-local). Set `GUEST_COOKIE_SECURE=true`,
    exact `CORS_ORIGINS`, keep `DEVELOPMENT_OBSERVABILITY_ENABLED` off, and verify the guest-session
    cookie works when frontend and API are on different domains. Hosting choice and any paid tier
    are the user's decisions. Then the README rewrite: one-line pitch, live link, short demo video,
    architecture diagram, results table including the failed sparse stratum, honest limitations.
-3. **PDF/HTML document support** as its own phase with an ADR: text extraction only (no OCR),
+2. **PDF/HTML document support** as its own phase with an ADR: text extraction only (no OCR),
    strip HTML scripts and hidden elements (prompt-injection risk), size/page caps, parser CVE
    review, and an evaluation set with real PDFs before claiming support (AGENTS.md rule).
-4. **AI explanation of the Python calculations** (later, own ADR): the model may only narrate
+3. **AI explanation of the Python calculations** (later, own ADR): the model may only narrate
    numbers the code produced, each cited and verified by exact match; it never calculates.
-5. Embedding-stack upgrade (`sentence-transformers`/`transformers`, review `chromadb`) as its own
+4. Embedding-stack upgrade (`sentence-transformers`/`transformers`, review `chromadb`) as its own
    phase, with the frozen retrieval benchmark before and after; clears most remaining findings.
-6. Consider bumping the GitHub Actions versions to clear the Node 20 deprecation warnings.
-7. Obtain and safely prepare a permissioned, anonymized independent-retailer export, then run the
+5. Consider bumping the GitHub Actions versions to clear the Node 20 deprecation warnings.
+6. Obtain and safely prepare a permissioned, anonymized independent-retailer export, then run the
    existing offline evaluator without changing forecast policy after seeing its results.
-8. Propose an offline development-reference audit of alternate passages supporting
+7. Propose an offline development-reference audit of alternate passages supporting
    the same fact, with explicit scope/exception checks. Keep current scores and locked
    references unchanged; version any later scoring change separately. Investigate
    transport reliability and the undiagnosed Groq `400` with bounded diagnostics before
    another provider run. Do not switch models or add hybrid retrieval just to raise
    coverage. Stability/locked runs remain blocked pending complete development evidence.
-9. Treat any cold-start forecasting improvement as a separate user-approved design and evaluation
+8. Treat any cold-start forecasting improvement as a separate user-approved design and evaluation
    phase; do not loosen the live preview rules merely to increase coverage.
 
 ### Decisions requiring the user
