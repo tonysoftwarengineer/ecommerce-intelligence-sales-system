@@ -8,10 +8,7 @@ only lets AI speak when it can quote its source.
 ![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)
 ![React + TypeScript](https://img.shields.io/badge/frontend-React%20%2B%20TypeScript-3178C6)
 
-<p>
-  <img src="docs/images/dashboard-desktop.png" alt="Dashboard with section sidebar, data check, and key numbers for the fictional Harbor Home sample shop" width="76%">
-  <img src="docs/images/dashboard-phone-menu.png" alt="Phone view with the Sections menu open" width="22%">
-</p>
+![Dashboard with section sidebar, data check, and key numbers for the fictional Harbor Home sample shop](docs/images/dashboard-desktop.png)
 
 ## What it does
 
