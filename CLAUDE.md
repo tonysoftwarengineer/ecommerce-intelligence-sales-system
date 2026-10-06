@@ -33,7 +33,7 @@ When updating, keep these headings and replace only the factual content beneath 
 
 ### Updater and date
 
-Codex — 2026-10-05 (document-answer cache retention and sample guide corrected)
+Claude Code — 2026-10-06 (Codex's cache-retention commit reviewed; README rewritten)
 
 ### Completed phase
 
@@ -142,6 +142,19 @@ when their analysis or guest session is removed. The periodic sweep removes entr
 have expired or become inactive, as well as entries past the cache TTL. Identical active documents
 can still share a verified answer across guests; the sample retailer walkthrough now names the
 current **Add document** button.
+
+Claude Code reviewed that work (8466276; CI run 37484909361, all four jobs, 482 backend tests,
+10 browser journeys): cache lookups and stores re-check source liveness under
+`rag_transaction_lock`, eviction covers delete, supersede, expiry, analysis and guest removal, and
+no lock-order inversion was found. One pre-existing issue it extends is recorded under Current
+limitations.
+
+The README is rewritten for a recruiter audience (about 200 lines, from 390): pitch, CI badge, two
+screenshots in `docs/images/`, a trust-principles table, three Mermaid diagrams (system, CSV to
+dashboard, document-answer gates), an evidence table that keeps the failed sparse-demand result,
+tech stack, local setup, structure, and honest limits. Every detail it dropped moved to
+`docs/REFERENCE.md` (API, configuration, retail recognition contract, data lifetime, setup notes,
+RAG Phase 1/2 history, product-demand history, tests). `AGENTS.md` now points to that file.
 
 ### Changed areas
 
@@ -332,6 +345,10 @@ current **Add document** button.
   are not shared across replicas. Feedback votes are visible only via the token-guarded
   observability endpoint; written feedback lives in public GitHub issues. Passive source expiry is
   reflected in cache eviction during the background cleanup cycle (every 60 seconds).
+- The background cleanup task runs on the event loop and acquires `rag_transaction_lock`
+  synchronously (`api/main.py`, twice per cycle since 8466276). Document indexing holds that lock
+  in a worker thread while embedding, so a cleanup tick during indexing stalls every request until
+  indexing finishes. Pre-existing; fix by running the locked cleanup steps in a worker thread.
 - Validation errors render at the top of the workspace, far from the button the user clicked,
   so on a long page an error can look like nothing happened. Noted, not changed.
 - Starlette 1.7 warns that its test client will move from `httpx` to `httpx2` (test-only).
@@ -350,9 +367,10 @@ current **Add document** button.
 
 1. **Phase 2 deploy.** One replica only (stores are process-local). Set `GUEST_COOKIE_SECURE=true`,
    exact `CORS_ORIGINS`, keep `DEVELOPMENT_OBSERVABILITY_ENABLED` off, and verify the guest-session
-   cookie works when frontend and API are on different domains. Hosting choice and any paid tier
-   are the user's decisions. Then the README rewrite: one-line pitch, live link, short demo video,
-   architecture diagram, results table including the failed sparse stratum, honest limitations.
+   cookie works when frontend and API are on different domains. The user chose Oracle Cloud
+   Always Free (Hugging Face Docker Spaces now need PRO); the proposed plan is the uncommitted
+   `docs/plans/oracle-deploy.md` (Caddy in front, one URL, Groq). Paused by the user. After it
+   goes live, add the live link and a short demo video to the README.
 2. **PDF/HTML document support** as its own phase with an ADR: text extraction only (no OCR),
    strip HTML scripts and hidden elements (prompt-injection risk), size/page caps, parser CVE
    review, and an evaluation set with real PDFs before claiming support (AGENTS.md rule).

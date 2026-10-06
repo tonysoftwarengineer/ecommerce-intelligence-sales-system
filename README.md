@@ -1,389 +1,203 @@
 # Ecommerce Intelligence Sales System
 
-A portfolio MVP for small online retailers selling physical products with repeat
-sales. A retailer uploads an order export, reviews column meanings and sales
-rules, and receives validated sales analytics, evidence-backed diagnostics,
-forecast previews when eligible, and experimental answers from approved
-documents. Other valid sales CSVs can use the same mapping path; the business
-focus is not an upload restriction.
+Sales analytics for small online shops that checks the data before it calculates anything, and
+only lets AI speak when it can quote its source.
 
-Visitors without their own file can choose **Try a sample retailer**, which runs a small,
-clearly fictional shop's CSV through the same guided upload, mapping, validation, and dashboard
-flow. Olist was an earlier research benchmark, not the uploaded-business contract or a live demo.
+[![CI](https://github.com/tonysoftwarengineer/ecommerce-intelligence-sales-system/actions/workflows/ci.yml/badge.svg)](https://github.com/tonysoftwarengineer/ecommerce-intelligence-sales-system/actions/workflows/ci.yml)
+![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB)
+![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)
+![React + TypeScript](https://img.shields.io/badge/frontend-React%20%2B%20TypeScript-3178C6)
+
+<p>
+  <img src="docs/images/dashboard-desktop.png" alt="Dashboard with section sidebar, data check, and key numbers for the fictional Harbor Home sample shop" width="76%">
+  <img src="docs/images/dashboard-phone-menu.png" alt="Phone view with the Sections menu open" width="22%">
+</p>
 
 ## What it does
 
-**Understand sales:** Upload a CSV, review suggested column matches and business rules, and see
-recognized sales, orders, average order value, and measurable changes. Direct identifiers are
-masked in the preview. Invalid rows are excluded with reasons and downloadable for correction;
-the accepted canonical rows can also be downloaded.
+A shop owner uploads an order export (CSV). The app:
 
-**Plan cautiously:** Revenue trends and eligible seven-day product-unit estimates use transparent
-methods and historical checks. A forecast may be unavailable or preview-only when the evidence is
-weak; it is not a dependable restocking instruction.
+- **Checks the data first.** It suggests which column is which, the owner confirms, and every row
+  is validated. Rows that fail are excluded with a reason and can be downloaded and fixed. Nothing
+  is silently repaired.
+- **Shows what happened.** Net revenue, orders, average order value, the revenue trend, categories
+  and regions, and what changed between the last two complete months, split into its measurable
+  parts (fewer orders, or a different average order value).
+- **Plans carefully.** Revenue estimates are tested against past months and labelled by how far to
+  trust them. Seven-day product-demand estimates appear only when they beat a zero-demand benchmark
+  in backtests; otherwise the app says why there is no estimate.
+- **Answers from documents** *(experimental)*. Upload a shipping or refund policy (`.txt` or `.md`)
+  and ask a question. Every claim quotes the document word for word, or the app declines to answer.
 
-**Ask about approved documents:** Text and Markdown sources can be uploaded to one analysis. The
-experimental document-answer feature retrieves relevant excerpts, cites exact supporting quotes,
-and abstains when evidence is insufficient. It does not answer sales-performance questions yet.
+No file to hand? **Try a sample retailer** runs a clearly fictional shop, Harbor Home, through the
+same steps.
 
-The historical Olist research benchmark is no longer shipped as code. Its six-month linear
-revenue-trend experiment scored **14.2% MAPE** on its own rolling backtest, and an RFM study of
-94,398 customers found that the “High Value” cluster averaged 2.11 orders versus 1.00 in other
-clusters. Those results are historical research only, not validation of the current retailer
-forecast or a promise about uploaded businesses.
+## How it earns trust
 
-### First-release audience and questions
-
-The intended user is the owner or operator of a small online shop selling
-repeat-purchase physical products. Their first job is to understand validated
-sales changes: recognized revenue, orders, average order value, supported
-category or region contributors, data limitations, and what to investigate.
-Approved shipping, refund, or catalogue documents can be searched for cited
-evidence; they do not change sales calculations. Seven-day product-unit demand
-remains an optional **Preview — not decision-ready** feature, not a restocking
-instruction.
-
-The current sales analysis requires a mapped order ID, order date, customer ID,
-and a valid revenue representation (row total, price × quantity, or order total).
-If the export has no order status, the business must confirm every row is a
-completed sale. Product demand additionally needs a stable SKU or confirmed
-unique product name, quantity, unit of measure, sufficient safe calendar history,
-and truthful open-day and stockout confirmations. Category fallback needs a
-mapped, confirmed category and compatible units. Missing or ambiguous evidence
-reduces capability or returns an unavailable result; it is never invented.
-
-Use the [fictional retailer browser walkthrough](tests/fixtures/retailer_demo/README.md)
-for one coherent CSV and document example. The
-[retailer evaluation matrix](docs/evaluation/online_retailer_evidence_matrix.md)
-separates exercised behavior from independent accuracy evidence.
+| Principle | How it is enforced |
+|---|---|
+| Python calculates, AI never does | Every figure comes from tested Python code. The language model only sees retrieved document excerpts. |
+| Fail closed, never guess | Unknown order statuses are quarantined until the owner classifies them, and invalid rows are never silently repaired. Currencies are reported separately and never added together. |
+| Every AI claim is checked | An answer is returned only if each claim quotes a retrieved excerpt exactly. Questions without enough evidence are declined before any AI call. |
+| Honest evaluation | Tuning uses development data only; locked test sets run once. A failed result is published, not hidden (see [Evidence](#evidence)). |
+| Visitors are isolated | An HttpOnly guest cookie scopes every upload, analysis, and document; any other browser gets "not found". |
+| AI cost is bounded | A daily answer budget, a per-visitor rate limit, a cache of verified answers, and no silent switch to another provider. |
+| Decisions are written down | 17 [Architecture Decision Records](docs/architecture) explain the trade-offs. |
+| Every push is tested | CI runs lint, formatting, type checks, backend tests, the frontend build, Playwright browser journeys, and a production Docker image smoke test. |
 
 ## Architecture
 
-The portfolio-level design, evidence, trade-offs, current limits, and future AI
-boundary are documented in the
-[architecture case study](docs/ARCHITECTURE_CASE_STUDY.md). The accepted RAG
-decision is recorded in
-[ADR-005](docs/architecture/ADR-005-rag-explanation-boundary.md). The account-free
-portfolio boundary is recorded in
-[ADR-013](docs/architecture/ADR-013-portfolio-guest-session-rag-foundation.md).
-[ADR-014](docs/architecture/ADR-014-rag-phase-1-retrieval.md) records the
-evaluated retrieval design. Guest isolation, atomic latest-version indexing,
-MiniLM/Chroma retrieval, honest abstention, citations, and the dashboard evidence
-panel are implemented. Experimental grounded document answers are implemented
-behind claim-level citation and exact-quote checks; their locked Phase 2 release
-evaluation is still pending.
-
-```text
-business CSV → preview → map → validate → quarantine/transform → analytics → dashboard
-                                      ↘ eligible forecast previews and diagnostics
-approved document → chunk/index latest version → retrieve evidence → verify cited AI claims or abstain
+```mermaid
+flowchart LR
+    subgraph Browser
+        UI["React + TypeScript dashboard"]
+    end
+    subgraph Service["FastAPI service (api/)"]
+        API["REST API /api/v1<br/>guest sessions, rate limits"]
+        Stores[("In-memory stores<br/>uploads, analyses, documents")]
+    end
+    subgraph Domain["Domain logic (src/, no web framework)"]
+        Map["schema_mapping<br/>column suggestions"]
+        Sales["generic_sales<br/>validate, quarantine, transform,<br/>KPIs, revenue estimate"]
+        Diag["diagnostics<br/>what changed, anomaly check,<br/>next steps"]
+        Demand["product_demand<br/>7-day preview, trust gate"]
+        RAG["rag<br/>chunk, index, retrieve, verify"]
+    end
+    LLM["Groq or Gemini"]
+    UI -->|"JSON + HttpOnly cookie"| API
+    API --> Stores
+    API --> Map --> Sales --> Diag
+    Sales --> Demand
+    API --> RAG -->|"retrieved excerpts only"| LLM
 ```
 
-| Module | Responsibility |
+**From CSV to dashboard**
+
+```mermaid
+flowchart LR
+    A["Upload CSV"] --> B["Preview<br/>identifiers masked"]
+    B --> C["Match columns<br/>suggested, owner confirms"]
+    C --> D["Check every value"]
+    D -->|"rows that fail"| Q["Excluded with reasons<br/>downloadable"]
+    D --> E["Clean sales rows"]
+    E --> F["Dashboard<br/>key numbers, trend, what changed,<br/>estimates, documents"]
+```
+
+**How a document answer is produced**
+
+```mermaid
+flowchart TD
+    Q["Visitor asks a question"] --> R["Search only this visitor's<br/>latest documents"]
+    R --> G{"Relevant evidence<br/>found?"}
+    G -->|"no"| N["Decline: not enough information<br/>(no AI call)"]
+    G -->|"yes"| C{"Same question and evidence<br/>answered before?"}
+    C -->|"yes"| P["Reuse the cached answer"]
+    C -->|"no"| L{"Daily budget and<br/>visitor limit OK?"}
+    L -->|"no"| U["Unavailable, try again later"]
+    L -->|"yes"| M["AI drafts claims<br/>from the excerpts"]
+    M --> V{"Every claim quotes<br/>an excerpt exactly?"}
+    P --> V
+    V -->|"no"| X["Rejected: no AI text shown"]
+    V -->|"yes"| A["Answer with its quotes"]
+```
+
+## Evidence
+
+| What was tested | Result | Details |
+|---|---|---|
+| Document search, locked test (20 questions, run once) | Correct source first 93.8%, in top three 94.1%; unsupported questions declined 100%; cross-visitor leakage 0; p95 latency 8.5 ms | [report](docs/evaluation/rag_phase_1/chroma_locked_test.md) |
+| Product-demand estimates, locked holdout (48 products, 624 weekly forecasts) | Delayed-start, dense, and intermittent demand passed. Sparse demand **failed** (no better than predicting zero), so estimates stay a labelled preview. | [report](docs/PRODUCT_DEMAND_LOCKED_EVALUATION.md) |
+| CSV trust matrix | 15 end-to-end scenarios: revenue modes, discounts, order statuses, refunds, duplicates, date formats, and currencies | [tests](tests/test_csv_trust_matrix.py) |
+| Document answers with real AI providers | Every returned answer passed the exact-quote check, but provider rate limits and errors left the runs inconclusive, so the feature stays experimental | [latest report](docs/evaluation/rag_phase2_groq_hard_development_diagnostics_rerun_2026-09-27.md) |
+
+## Tech stack
+
+| Layer | Tools |
 |---|---|
-| `config.py` | Local and deployment configuration |
-| `src/schema_mapping.py` | Canonical CSV field definitions and schema-mapping validation |
-| `src/generic_sales/` | Validation, canonical transformation, generic analytics, and adaptive forecasting |
-| `src/product_demand/` | Product/category readiness, calendar semantics, rolling evaluation, candidate selection, and preview trust policy |
-| `src/rag/` | Chunking, lexical/semantic indexes, retrieval policy, metrics, and untrusted-context contracts |
-| `api/` | FastAPI app — routes, serializers, expiring upload and analysis-session storage |
-| `frontend/` | React + TypeScript + Recharts dashboard |
+| Backend | Python 3.12, FastAPI, pandas, scikit-learn |
+| Document search | ChromaDB with `all-MiniLM-L6-v2` (sentence-transformers); a TF-IDF baseline |
+| AI answers | Groq (`openai/gpt-oss-20b`) or Gemini, called directly over HTTP; no LLM framework |
+| Frontend | React 19, TypeScript, Vite, Recharts |
+| Quality | pytest, Playwright, Ruff, mypy, oxlint, GitHub Actions |
+| Packaging | Docker (non-root, health check, CPU-only PyTorch); every Python package pinned in `constraints.txt` |
 
-## Setup
+## Run it locally
 
-Requires Python 3.12.
+Requires Python 3.12 and Node 20.
 
 ```bash
 python3.12 -m venv .venv && source .venv/bin/activate
-pip install -r requirements-dev.txt -c constraints.txt  # requirements.txt plus pytest/ruff/mypy
-```
+pip install -r requirements-dev.txt -c constraints.txt
 
-`constraints.txt` locks every package, including transitive ones such as `torch`
-and `numpy`, to the versions the test suite passed with. Install without it and
-those libraries may resolve to newer, untested versions. Use
-`pip install -r requirements.txt -c constraints.txt` alone only when reproducing
-the production image, which never installs test/lint tooling (see `Dockerfile.api`).
+# Terminal 1: API
+python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
 
-The app does not download an external sales dataset at startup. The optional document embedding
-model is preloaded in the demo image; local semantic retrieval may download its model on first use.
-
-## Usage
-
-**Web dashboard** — two terminals, from the project root:
-
-```bash
-# 1. API
-.venv/bin/python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
-
-# 2. Frontend
+# Terminal 2: frontend
 cd frontend && npm install && npm run dev -- --host 127.0.0.1
 ```
 
-Then open <http://127.0.0.1:5173>. Interactive API docs are at <http://127.0.0.1:8000/docs>.
+Open <http://127.0.0.1:5173> and choose **Try a sample retailer**. API docs are at
+<http://127.0.0.1:8000/docs>. Use the same host name (`127.0.0.1` or `localhost`) for both, because
+the guest cookie is tied to the host.
 
-The frontend automatically follows the hostname in the browser address bar for
-local API calls. You can also use `localhost` for both services, but do not mix
-`localhost` and `127.0.0.1` in the same local session because guest uploads are
-protected by host-scoped cookies.
-
-## API
-
-| Endpoint | Returns |
-|---|---|
-| `GET /api/v1/health` | Liveness check: `{"status": "ok"}` |
-| `POST /api/v1/uploads/preview` | Temporary upload ID, expiry, CSV shape, types, and first 5 rows |
-| `POST /api/v1/uploads/mapping-suggestions` | Explainable header-based mapping recommendations; the business must review them |
-| `POST /api/v1/uploads/distinct-values` | Profile all distinct values for mapped status columns (capped at 100) |
-| `POST /api/v1/uploads/validate-mapping` | Validate an upload's columns against the canonical sales schema |
-| `POST /api/v1/uploads/validate-data` | Validate mapped values and return quarantine requirements |
-| `POST /api/v1/uploads/transform` | Produce canonical sales data after required confirmation |
-| `POST /api/v1/uploads/analyze` | Transform, analyze, forecast, and create a dashboard session |
-| `GET /api/v1/observability/analysis-metrics` | Aggregate evaluation metrics when enabled and called with the admin token; otherwise 404 |
-| `DELETE /api/v1/uploads/{upload_id}` | Immediately remove a temporary upload |
-| `GET /api/v1/analyses/{analysis_id}` | Restore a generic business analysis session |
-| `POST /api/v1/analyses/{analysis_id}/product-demand` | Opt-in, evidence-gated seven-day fulfilled-unit previews by product, with guarded category fallback |
-| `GET /api/v1/analyses/{analysis_id}/canonical.csv` | Download accepted canonical rows |
-| `GET /api/v1/analyses/{analysis_id}/quarantine.csv` | Download rejected rows and reasons |
-| `DELETE /api/v1/analyses/{analysis_id}` | Immediately remove an analysis session |
-| `POST /api/v1/analyses/{analysis_id}/rag/documents` | Atomically store, chunk, and index an approved UTF-8 text/Markdown source for one analysis |
-| `GET /api/v1/analyses/{analysis_id}/rag/documents` | List source metadata for the owned analysis |
-| `DELETE /api/v1/analyses/{analysis_id}/rag/documents/{document_id}` | Remove one analysis-scoped RAG source |
-| `POST /api/v1/analyses/{analysis_id}/rag/retrieve` | Return up to three cited evidence excerpts or an honest abstention; no generated answer |
-| `POST /api/v1/analyses/{analysis_id}/rag/answer` | Return only verified, claim-level grounded answers or a bounded abstention/unavailable result |
-| `POST /api/v1/analyses/{analysis_id}/rag/answer-feedback` | Record a helpful / not helpful vote on an answer; stores only aggregate counts, no text |
-| `GET /api/v1/observability/rag-answer-metrics` | Aggregate grounded-answer metrics when enabled and called with the admin token; otherwise 404 |
-
-The API serves the retailer workflow without loading a benchmark sales dataset.
-
-Business CSV uploads are held in process memory for at most 30 minutes and are removed early by the
-web app after analysis succeeds. Derived analysis sessions and approved RAG source documents expire
-after 2 hours. An HttpOnly anonymous guest cookie scopes uploads, analyses, and documents so another
-browser session receives a not-found response. IDs are random, expired data is cleaned automatically,
-and the stores support immediate deletion. These
-process-local stores are suitable for the current single-server version; they are not shared between
-multiple API instances and do not survive a server restart.
-Cached document answers are removed when a supporting document is deleted or superseded. Periodic
-cleanup removes answers whose sources have expired, along with expired cache entries.
-
-### RAG Phase 1 evaluation
-
-The frozen semantic configuration uses `all-MiniLM-L6-v2`, 224-token chunks,
-32-token overlap, and a 0.40 cosine-similarity gate. On the untouched 20-case
-locked test it reached 93.75% Top-1 source accuracy, 94.12% Top-3 source recall,
-100% unsupported-question abstention, and 8.482 ms warm p95 latency. The full
-reports are in [`docs/evaluation/rag_phase_1`](docs/evaluation/rag_phase_1).
+Document answers need an AI provider key: copy `.env.example` to `.env` and fill in the key for the
+provider it selects. Without a key everything else works, and answers show as unavailable.
 
 ```bash
-# Tune only against the development split.
-python3 -m scripts.evaluate_rag_retrieval --backend chroma --split development --select-development
-
-# Run a frozen configuration against the locked split once.
-python3 -m scripts.evaluate_rag_retrieval --backend chroma --split locked_test \
-  --config docs/evaluation/rag_phase_1/chroma_frozen_config.json
-
-# Run during a future deployed-image build so runtime does not download a model.
-python3 -m scripts.preload_rag_model
-
-# The provided API image performs that preload during its build.
-docker build -f Dockerfile.api -t ecommerce-intelligence-api .
+# Checks (the same ones CI runs)
+ruff check . && ruff format --check . && mypy . && pytest -q
+cd frontend && npx tsc --noEmit && npm run lint && npm run build
+npx playwright install chromium && npm run test:e2e
 ```
-
-### RAG Phase 2 status
-
-Grounded document answers are implemented as an experimental layer over the
-frozen Phase 1 retriever. Documents are isolated by guest and analysis. Every
-returned claim must cite a retrieved chunk and include an exact quote that the
-API verifies before returning the response. Missing credentials, provider
-failures, invalid model output, and unsupported questions return no generated
-claims; the analytics dashboard remains operational.
-
-The deterministic fake-provider development run validates the wiring,
-verification, abstention, isolation, and latency paths. It intentionally does
-not count as a real-provider quality evaluation and did not pass the gold-claim
-coverage gate. The untouched locked Phase 2 run and manual failure review remain
-pending, so the feature stays labelled experimental. See
-[`ADR-015`](docs/architecture/ADR-015-experimental-grounded-document-answers.md)
-and the [development report](docs/evaluation/rag_phase2_development_fake.md).
-
-The separate `hard-development` suite contains eight longer synthetic documents
-for one fictional retailer and twenty adversarial development questions. It is
-for answer-quality repair only: its detailed per-case trace is written under
-ignored `data/private/`, and it never changes the frozen Phase 1 corpus or the
-untouched Phase 2 locked set.
-
-The recorded real Gemini hard-development run had 18 provider-unavailable cases
-(`gemini_http_429`) and no supported-case provider responses. It is inconclusive
-about answer quality, and the feature remains experimental. See the
-[hard-development report](docs/evaluation/rag_phase2_hard_development.md).
-
-The first Groq hard-development run returned seven verified answers and passed
-unsupported-question abstention, isolation, and latency checks. It was still
-inconclusive: eleven supported cases were unavailable (ten `groq_http_429` and
-one `groq_http_400`), leaving 28.6% gold-claim coverage. No retrieval or answer
-policy was tuned after this run. See the separate
-[Groq hard-development report](docs/evaluation/rag_phase2_groq_hard_development.md).
-
-Two later Groq development runs on 2026-09-27 were also inconclusive. A paced
-run returned 15 answers with 57.1% reference coverage but three provider
-failures ([report](docs/evaluation/rag_phase2_groq_hard_development_2026-09-27.md)).
-A rerun with repaired diagnostics returned eight answers and ten provider
-failures (nine transport errors, one HTTP 400), with 28.6% full-suite coverage
-([report](docs/evaluation/rag_phase2_groq_hard_development_diagnostics_rerun_2026-09-27.md)).
-Every returned answer passed exact-quote verification, unsupported questions were
-always declined, and no document crossed a scope boundary. These are
-provider-availability results, not evidence of reliable answer quality.
-
-```bash
-# Development-only: emits a private trace and a sanitized summary.
-python3 -m scripts.evaluate_rag_answers --suite hard-development --split development
-```
-
-### Retail recognition contract
-
-The generic dashboard is operational sales intelligence, not certified accounting software. It
-requires the business to confirm the meaning of its data before calculations:
-
-- Completed orders are recognized as sales. Pending orders are shown separately, cancelled orders
-  are excluded, and returns preserve the original sale plus a separate refund.
-- Unknown order or payment statuses are quarantined until the business classifies them. If no order
-  status exists, the business must explicitly confirm that every row is completed.
-- Discounts support fixed or percentage values at per-unit, per-line, or entire-order scope.
-  Entire-order discounts may remain unallocated or be distributed proportionally across line items.
-- Reported totals and calculated price × quantity totals are preserved together. The selected
-  revenue authority wins; differences can warn or quarantine according to the confirmed policy.
-- Tax, shipping, pending value, refunds, disputes, and chargebacks remain separate from recognized
-  revenue. Distinct currencies are analyzed independently and are never added together.
-- If both tax and a refund amount are mapped, the business must confirm whether refunds include tax;
-  the system never guesses that accounting treatment. Cash collection is unavailable unless a
-  payment-amount column is mapped—payment status alone does not prove cash received.
-- Refund-only periods remain visible in revenue reporting but are excluded from forecast history,
-  so post-sale adjustments do not distort demand forecasting.
-- Invalid and conflicting rows are never silently repaired. They are quarantined with machine-readable
-  issue codes and human-readable reasons for download and review.
-
-## Configuration
-
-All settings have working local defaults — deploying should never require editing source.
-For local experimental grounded-answer development, copy `.env.example` to an
-ignored `.env` and provide the key for the explicitly selected provider.
-The example selects Groq with `openai/gpt-oss-20b`; Gemini remains selectable.
-Environment variables supplied by a deployment always override values from that
-local file.
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `LOG_LEVEL` | `INFO` | Logging verbosity |
-| `CORS_ORIGINS` | *(empty)* | Comma-separated exact origins for production, e.g. `https://dashboard.example.com` |
-| `CORS_ORIGIN_REGEX` | any `localhost` port | Dev fallback, used only when `CORS_ORIGINS` is empty |
-| `UPLOAD_TTL_MINUTES` | `30` | Fixed lifetime for temporary business CSV uploads |
-| `UPLOAD_MAX_BYTES` | `10485760` | Maximum accepted CSV size in bytes (10 MiB) |
-| `UPLOAD_RATE_LIMIT_PER_MINUTE` | `20` | CSV and RAG document upload attempts per anonymous guest per rolling minute |
-| `ANALYSIS_TTL_MINUTES` | `120` | Lifetime of derived business-analysis sessions |
-| `GUEST_SESSION_TTL_MINUTES` | `120` | Lifetime of an anonymous isolated portfolio-demo session |
-| `GUEST_SESSION_COOKIE` | `ei_guest_session` | HttpOnly guest-session cookie name |
-| `GUEST_COOKIE_SECURE` | `false` | Set `true` when the API is served over HTTPS |
-| `RAG_DOCUMENT_TTL_MINUTES` | `120` | Lifetime of temporary approved RAG sources |
-| `RAG_DOCUMENT_MAX_BYTES` | `2097152` | Maximum accepted RAG source size (2 MiB) |
-| `GEMINI_API_KEY` | empty | Server-only Gemini credential; answers are unavailable when absent |
-| `GROQ_API_KEY` | empty | Server-only Groq credential; required when `RAG_ANSWER_PROVIDER=groq` |
-| `RAG_ANSWER_MODEL` | `gemini-3.8-flash` | Model for the explicitly selected experimental answer provider |
-| `RAG_ANSWER_TIMEOUT_SECONDS` | `5.0` | Provider request timeout |
-| `RAG_ANSWER_PROVIDER` | `gemini` | `gemini`, `groq`, or `fake`; use `fake` only for deterministic CI/browser tests |
-| `RAG_ANSWER_MAX_OUTPUT_TOKENS` | `1024` | Hard maximum generated tokens for one grounded answer |
-| `RAG_ANSWER_RATE_LIMIT_PER_MINUTE` | `6` | Provider-backed answer attempts per anonymous guest per rolling minute |
-| `RAG_ANSWER_DAILY_BUDGET` | `100` | Provider-backed answers per UTC day across all visitors; repeated identical questions are served from a cache and do not count |
-| `DEVELOPMENT_OBSERVABILITY_ENABLED` | `false` | Enable the two aggregate metrics endpoints; requires `DEVELOPMENT_OBSERVABILITY_TOKEN` or the API refuses to start |
-| `DEVELOPMENT_OBSERVABILITY_TOKEN` | empty | Shared admin secret; callers send `Authorization: Bearer <token>`. A missing or wrong token returns 404 |
-
-## Tests
-
-```bash
-pytest -q
-```
-
-The backend suite tests the retailer workflow without downloading Olist data.
-
-`tests/test_csv_trust_matrix.py` runs 15 end-to-end CSV scenarios through the upload API. The
-matrix covers all revenue modes, discount scopes, statuses, refunds, duplicate and malformed rows,
-header suggestions, date formats, missing periods, forecasting eligibility, and currency isolation.
-
-The Playwright suite tests the browser-to-API-to-dashboard journey in Chromium. Install its browser
-once, then run the four focused flows:
-
-```bash
-cd frontend
-npx playwright install chromium
-npm run test:e2e
-```
-
-The suite starts isolated API and frontend servers. It covers a
-complete evidence-rich analysis, required quarantine confirmation, friendly unavailable states for
-limited data, and the product-demand upload-to-preview journey. Failure screenshots, traces, and
-screen recordings are written to ignored local test artifact directories. Use
-`npm run test:e2e:report` to inspect the HTML report.
 
 ## Project structure
 
-```
-config.py
-api/            FastAPI backend
+```text
+api/                  FastAPI app: routes, guest sessions, temporary stores, AI answer service
 src/
-├── logging_config.py
-├── generic_sales/
-├── product_demand/
-└── rag/
-frontend/       React + TypeScript dashboard
-tests/
+  schema_mapping.py   canonical sales fields and column-mapping rules
+  generic_sales/      validation, quarantine, transformation, KPIs, revenue estimate
+  diagnostics/        what changed, anomaly check, recommended next steps
+  product_demand/     seven-day product-demand preview and its evaluation
+  rag/                chunking, indexes, retrieval, citation verification
+frontend/             React + TypeScript dashboard and Playwright browser journeys
+tests/                backend tests, CSV trust matrix, fixtures
+scripts/              offline evaluations
+docs/                 case study, roadmap, decision records, evaluation reports, reference
 ```
 
-## Roadmap
+## Status and roadmap
 
-Built: retailer-focused REST API, generic CSV preview, schema
-mapping, value validation, quarantine reporting, canonical transformation, generic analytics,
-adaptive forecasting, retail status/discount/refund/payment rules, multi-currency reporting,
-expiring analysis sessions, downloads, backend-owned data-quality readiness, guided CSV repair,
-Preview Mode, and the guided React upload dashboard.
+This is a portfolio MVP, not production software:
 
-The ten-milestone trust and Diagnostic Intelligence roadmap is complete. See the
-[roadmap](docs/DIAGNOSTIC_INTELLIGENCE_ROADMAP.txt) and
-[architecture case study](docs/ARCHITECTURE_CASE_STUDY.md).
+- **Not deployed yet.** A free single-server deployment is planned.
+- **One server, no accounts.** Uploads, analyses, and documents live in memory, expire within two
+  hours, and are lost on restart.
+- **Forecasts are previews.** They still need validation on data from a real independent retailer.
+- **Document answers are experimental** until their locked evaluation runs.
 
-The primary product-demand target is now defined as a per-product seven-day
-fulfilled-unit total. Its evaluation engine compares transparent weekly methods,
-including SBA/Croston for intermittent demand, against a zero benchmark. Accepted
-ADR-010 permits only unavailable or strongly labelled limited-preview states;
-date-specific and supported forecasts remain unapproved.
+Next: the live deployment, then **Ask about your sales**: plain-English questions such as "Why did
+revenue go down?", answered from the numbers Python has already validated and checked by the same
+exact-match rules. PDF and HTML documents follow as their own phase.
 
-The accepted product-demand policy is now connected through a tested opt-in API
-and dashboard journey without changing the existing revenue forecast. Eligible
-products show only a strongly labelled seven-day limited preview; unavailable
-products retain correction reasons. When every product in a confirmed category
-is too intermittent, a guarded fallback may show only the combined category
-total. It never allocates that number back to products or shows unreconciled
-product and category forecasts together. A disjoint-product, thirteen-week M5
-locked holdout passed for delayed-start, dense, and intermittent demand but
-failed the predeclared sparse-demand gate. Supported use therefore remains
-unapproved. A simple sparse-abstention candidate then failed a fresh holdout,
-and a three-block consistency rule failed development screening; neither changed
-the live policy. The next forecast checkpoint needs independent retailer data
-and clearer stockout and lifecycle evidence, not further tuning on those scored
-cohorts. RAG Phase 1 retrieval is evaluated and Phase 2 document answers are
-experimental. Real-business validation, authenticated durable storage, tenant
-boundaries, protected monitoring, and deployment remain later production
-foundations.
+## Documentation
 
-## Data & license
+- [Architecture case study](docs/ARCHITECTURE_CASE_STUDY.md): design, trade-offs, and limits
+- [Product roadmap](docs/DIAGNOSTIC_INTELLIGENCE_ROADMAP.txt)
+- [Architecture Decision Records](docs/architecture) (ADR-001 to ADR-017)
+- [Reference](docs/REFERENCE.md): API, configuration, data rules, and evaluation history
+- [Fictional retailer walkthrough](tests/fixtures/retailer_demo/README.md)
+- [Evaluation reports](docs/evaluation)
 
-Historical benchmark: [Brazilian E-Commerce Public Dataset by Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce).
-Its data is not bundled with the app; consult the source for license terms.
+## Background
 
-## Development
+The project began as research on the public
+[Olist Brazilian e-commerce dataset](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce).
+A six-month revenue-trend model scored 14.2% MAPE on its own rolling backtest, and an RFM study of
+94,398 customers found that the "High Value" cluster averaged 2.11 orders against 1.00 elsewhere.
+That code has been retired ([ADR-017](docs/architecture/ADR-017-retire-olist-demo.md)); the results
+are history, not evidence for the current product, and no Olist data is bundled.
 
-```bash
-ruff check .              # lint
-ruff format .             # format
-mypy .                    # type check
-pytest -q                 # all tests
-```
+---
 
-CI runs the backend tests, lint, format, types, frontend checks, browser journeys, and image smoke test.
+Built by Nwosu Anthony ([@tonysoftwarengineer](https://github.com/tonysoftwarengineer)).

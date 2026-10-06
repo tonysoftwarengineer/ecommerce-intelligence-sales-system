@@ -62,7 +62,8 @@ guest + analysis scope -> chunk/index/retrieve -> bounded answer provider
   before changing an established boundary.
 - `scripts/` contains repeatable offline evaluations, not hidden production behavior.
 
-For deeper context, read `README.md`, `docs/ARCHITECTURE_CASE_STUDY.md`, and only the ADRs relevant
+For deeper context, read `README.md`, `docs/REFERENCE.md` (API, configuration, data rules, and
+evaluation history), `docs/ARCHITECTURE_CASE_STUDY.md`, and only the ADRs relevant
 to the requested change.
 
 ## Non-Negotiable Engineering Rules
