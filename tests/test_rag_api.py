@@ -485,6 +485,91 @@ def test_cache_is_shared_across_guests_only_for_identical_evidence(monkeypatch) 
     assert provider.call_count == 2
 
 
+def test_replacing_or_deleting_a_document_evicts_only_related_answers(monkeypatch) -> None:
+    provider = _ExactQuoteProvider()
+    monkeypatch.setattr(routes, "answer_provider", provider)
+    client = TestClient(api_main.app)
+    first_analysis = _delivery_analysis(client)
+    other_analysis = _analysis(client)
+    _upload(
+        client,
+        other_analysis,
+        "# Delivery\nStandard Lagos delivery takes 2 to 4 business days.",
+        "other.md",
+    )
+    question = "How long does standard Lagos delivery take?"
+
+    assert _ask(client, first_analysis, question).json()["status"] == "grounded_answer"
+    assert _ask(client, other_analysis, question).json()["status"] == "grounded_answer"
+    assert len(rag_answer_cache) == 2
+
+    replacement = _upload(
+        client,
+        first_analysis,
+        "# Delivery\nStandard Lagos delivery takes 2 to 4 business days. Express is next day.",
+        "shipping.md",
+    )
+    assert len(rag_answer_cache) == 1
+    assert _ask(client, first_analysis, question).json()["status"] == "grounded_answer"
+    assert len(rag_answer_cache) == 2
+
+    assert (
+        client.delete(
+            f"/api/v1/analyses/{first_analysis}/rag/documents/{replacement['document_id']}"
+        ).status_code
+        == 204
+    )
+    assert len(rag_answer_cache) == 1
+    assert _ask(client, other_analysis, question).json()["status"] == "grounded_answer"
+    assert provider.call_count == 3
+
+
+def test_analysis_and_guest_cleanup_evict_shared_cached_answer(monkeypatch) -> None:
+    provider = _ExactQuoteProvider()
+    monkeypatch.setattr(routes, "answer_provider", provider)
+    question = "How long does standard Lagos delivery take?"
+    first_guest = TestClient(api_main.app)
+    first_analysis = _delivery_analysis(first_guest)
+    second_guest = TestClient(api_main.app)
+    second_analysis = _delivery_analysis(second_guest)
+
+    assert _ask(first_guest, first_analysis, question).json()["status"] == "grounded_answer"
+    assert _ask(second_guest, second_analysis, question).json()["status"] == "grounded_answer"
+    assert provider.call_count == 1
+    assert len(rag_answer_cache) == 1
+
+    assert first_guest.delete(f"/api/v1/analyses/{first_analysis}").status_code == 204
+    assert len(rag_answer_cache) == 0
+    assert _ask(second_guest, second_analysis, question).json()["status"] == "grounded_answer"
+    assert provider.call_count == 2
+
+    owner_scope_id = second_guest.cookies.get("ei_guest_session")
+    assert owner_scope_id
+    assert routes.delete_owner_rag_scopes(owner_scope_id) == 1
+    assert len(rag_answer_cache) == 0
+
+
+def test_answer_finishing_after_source_removal_is_not_cached(monkeypatch) -> None:
+    client = TestClient(api_main.app)
+    analysis_id = _delivery_analysis(client)
+    owner_scope_id = client.cookies.get("ei_guest_session")
+    assert owner_scope_id
+
+    class RemovingProvider(_ExactQuoteProvider):
+        def generate(self, question, evidence):
+            document_id = evidence[0].document_id
+            with routes.rag_transaction_lock:
+                document_store.delete(owner_scope_id, analysis_id, document_id)
+                routes.retrieval_service.delete_document(owner_scope_id, analysis_id, document_id)
+            return super().generate(question, evidence)
+
+    monkeypatch.setattr(routes, "answer_provider", RemovingProvider())
+    response = _ask(client, analysis_id, "How long does standard Lagos delivery take?")
+
+    assert response.json()["status"] == "grounded_answer"
+    assert len(rag_answer_cache) == 0
+
+
 def test_unverified_answers_are_never_cached(monkeypatch) -> None:
     invalid = _InvalidProvider()
     monkeypatch.setattr(routes, "answer_provider", invalid)

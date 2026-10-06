@@ -35,6 +35,9 @@ The portfolio demo has anonymous guests rather than user accounts and durable te
   per-upload chunk IDs replaced by positions, so the same question about an identical document is
   answered once. Cached answers are remapped to the current chunk IDs and re-verified with the
   same exact-quote check; unverified answers are never cached. A hit spends no budget or rate limit.
+  Cache entries track their source document IDs. Deleting, superseding, or expiring a source evicts
+  its related answers, including a shared entry used by another guest. Periodic cleanup also
+  removes entries past their cache lifetime or whose sources are no longer active.
 - Keep the feature labelled experimental until the locked Phase 2 release gates pass.
 
 ## Options Considered

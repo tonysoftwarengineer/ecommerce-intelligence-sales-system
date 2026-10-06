@@ -725,7 +725,10 @@ def _store_and_index_rag_document(
                 retrieval_service.delete_document(
                     owner_scope_id, analysis_id, old_document.metadata.document_id
                 )
-            document_store.activate(owner_scope_id, analysis_id, document.metadata.document_id)
+            superseded = document_store.activate(
+                owner_scope_id, analysis_id, document.metadata.document_id
+            )
+            rag_answer_cache.invalidate_documents(old.metadata.document_id for old in superseded)
         except (IndexUnavailableError, ValueError) as exc:
             try:
                 retrieval_service.delete_document(
@@ -774,6 +777,7 @@ def delete_rag_document(analysis_id: str, request: Request, document_id: str) ->
             document_store.get(owner_scope_id, analysis_id, document_id)
             retrieval_service.delete_document(owner_scope_id, analysis_id, document_id)
             document_store.delete(owner_scope_id, analysis_id, document_id)
+            rag_answer_cache.invalidate_documents((document_id,))
             if not document_store.active_documents(owner_scope_id, analysis_id):
                 retrieval_service.drop_scope(owner_scope_id, analysis_id)
         except DocumentNotFoundError as exc:
@@ -848,6 +852,7 @@ def answer_from_analysis_documents(
     cache_hit = False
     cache_key = None
     provider = answer_provider
+    source_document_ids = {item.document_id for item in retrieval.evidence}
     if (
         retrieval.status.value == "evidence_available"
         and retrieval.evidence
@@ -860,7 +865,12 @@ def answer_from_analysis_documents(
             question,
             retrieval.evidence,
         )
-        cached_payload = rag_answer_cache.get(cache_key)
+        with rag_transaction_lock:
+            cached_payload = (
+                rag_answer_cache.get(cache_key, source_document_ids)
+                if source_document_ids.issubset(document_store.live_active_document_ids())
+                else None
+            )
         if cached_payload is not None:
             cache_hit = True
             provider = ReplayAnswerProvider(
@@ -895,7 +905,13 @@ def answer_from_analysis_documents(
         and result.status == AnswerStatus.GROUNDED_ANSWER
         and provider.payload is not None
     ):
-        rag_answer_cache.put(cache_key, to_portable(provider.payload, retrieval.evidence))
+        with rag_transaction_lock:
+            if source_document_ids.issubset(document_store.live_active_document_ids()):
+                rag_answer_cache.put(
+                    cache_key,
+                    to_portable(provider.payload, retrieval.evidence),
+                    source_document_ids,
+                )
     rag_answer_observability.record_result(result, provider_attempted, cache_hit=cache_hit)
     return {
         "status": result.status,
@@ -948,6 +964,9 @@ def _delete_analysis_rag_scope(owner_scope_id: str, analysis_id: str) -> int:
     """Remove one analysis's temporary documents and its isolated retrieval collection."""
     with rag_transaction_lock:
         documents = document_store.pop_analysis(owner_scope_id, analysis_id)
+        rag_answer_cache.invalidate_documents(
+            document.metadata.document_id for document in documents
+        )
         retrieval_service.drop_scope(owner_scope_id, analysis_id)
         return len(documents)
 
@@ -956,5 +975,8 @@ def delete_owner_rag_scopes(owner_scope_id: str) -> int:
     """Remove all temporary RAG state when an anonymous guest expires."""
     with rag_transaction_lock:
         documents = document_store.pop_owner(owner_scope_id)
+        rag_answer_cache.invalidate_documents(
+            document.metadata.document_id for document in documents
+        )
         retrieval_service.drop_owner(owner_scope_id)
         return len(documents)

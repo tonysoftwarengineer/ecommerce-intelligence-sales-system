@@ -20,7 +20,7 @@ workflow; it does not validate forecast accuracy on a real retailer.
    evaluate. Any number shown is a seven-day **preview**, not a restock target.
    For a real shop, these confirmations require business records; do not guess.
 5. Upload `shipping_policy.md` in the document panel, choose **Policy**, and
-   select **Upload and index**. Ask: “How long does standard Lagos delivery take
+   select **Add document**. Ask: “How long does standard Lagos delivery take
    after dispatch?” If the selected answer provider is available, inspect the quote and citation. If
    it is unavailable, the sales dashboard remains usable. An unrelated
    question should return insufficient evidence.

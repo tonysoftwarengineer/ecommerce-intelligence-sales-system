@@ -162,6 +162,8 @@ browser session receives a not-found response. IDs are random, expired data is c
 and the stores support immediate deletion. These
 process-local stores are suitable for the current single-server version; they are not shared between
 multiple API instances and do not survive a server restart.
+Cached document answers are removed when a supporting document is deleted or superseded. Periodic
+cleanup removes answers whose sources have expired, along with expired cache entries.
 
 ### RAG Phase 1 evaluation
 

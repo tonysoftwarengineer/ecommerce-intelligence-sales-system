@@ -8,6 +8,7 @@ import hashlib
 import json
 import time
 from collections import OrderedDict
+from collections.abc import Iterable
 from threading import RLock
 from typing import Callable
 
@@ -98,9 +99,13 @@ class RagAnswerCache:
         self._ttl_seconds = ttl_seconds
         self._clock = clock or time.monotonic
         self._entries: OrderedDict[str, tuple[float, object]] = OrderedDict()
+        self._source_documents: dict[str, set[str]] = {}
         self._lock = RLock()
 
-    def get(self, key: str) -> object | None:
+    def get(self, key: str, source_document_ids: Iterable[str]) -> object | None:
+        document_ids = set(source_document_ids)
+        if not document_ids:
+            raise ValueError("A cached answer must have source documents")
         now = self._clock()
         with self._lock:
             entry = self._entries.get(key)
@@ -108,21 +113,60 @@ class RagAnswerCache:
                 return None
             stored_at, payload = entry
             if now - stored_at >= self._ttl_seconds:
-                del self._entries[key]
+                self._remove(key)
                 return None
+            self._source_documents[key].update(document_ids)
             self._entries.move_to_end(key)
             return payload
 
-    def put(self, key: str, payload: object) -> None:
+    def put(self, key: str, payload: object, source_document_ids: Iterable[str]) -> None:
+        document_ids = set(source_document_ids)
+        if not document_ids:
+            raise ValueError("A cached answer must have source documents")
         with self._lock:
             self._entries[key] = (self._clock(), payload)
+            self._source_documents.setdefault(key, set()).update(document_ids)
             self._entries.move_to_end(key)
             while len(self._entries) > self._max_entries:
-                self._entries.popitem(last=False)
+                oldest = next(iter(self._entries))
+                self._remove(oldest)
+
+    def invalidate_documents(self, document_ids: Iterable[str]) -> int:
+        """Discard answers supported by any deleted or superseded document."""
+        removed_ids = set(document_ids)
+        with self._lock:
+            stale = [
+                key
+                for key, sources in self._source_documents.items()
+                if not sources.isdisjoint(removed_ids)
+            ]
+            for key in stale:
+                self._remove(key)
+            return len(stale)
+
+    def cleanup_stale(self, active_document_ids: Iterable[str]) -> int:
+        """Remove expired entries and answers whose sources are no longer active."""
+        active_ids = set(active_document_ids)
+        now = self._clock()
+        with self._lock:
+            stale = [
+                key
+                for key, (stored_at, _) in self._entries.items()
+                if now - stored_at >= self._ttl_seconds
+                or not self._source_documents[key].issubset(active_ids)
+            ]
+            for key in stale:
+                self._remove(key)
+            return len(stale)
+
+    def _remove(self, key: str) -> None:
+        self._entries.pop(key, None)
+        self._source_documents.pop(key, None)
 
     def clear(self) -> None:
         with self._lock:
             self._entries.clear()
+            self._source_documents.clear()
 
     def __len__(self) -> int:
         with self._lock:

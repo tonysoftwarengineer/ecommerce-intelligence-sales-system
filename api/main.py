@@ -51,6 +51,9 @@ async def cleanup_expired_temporary_data() -> None:
         with rag_transaction_lock:
             expired_documents = document_store.pop_expired()
             removed_documents += len(expired_documents)
+            rag_answer_cache.invalidate_documents(
+                document.metadata.document_id for document in expired_documents
+            )
             expired_analysis_scopes = set()
             for document in expired_documents:
                 scope = (
@@ -79,6 +82,8 @@ async def cleanup_expired_temporary_data() -> None:
         rag_answer_rate_limiter.cleanup_expired()
         answer_feedback_rate_limiter.cleanup_expired()
         upload_rate_limiter.cleanup_expired()
+        with rag_transaction_lock:
+            rag_answer_cache.cleanup_stale(document_store.live_active_document_ids())
         if removed_uploads or removed_analyses or removed_documents or removed_guest_sessions:
             logger.info(
                 "Removed %d uploads, %d analyses, %d documents, and %d guest sessions",

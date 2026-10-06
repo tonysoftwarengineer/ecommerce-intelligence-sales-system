@@ -119,6 +119,18 @@ class TemporaryDocumentStore:
                 and document.metadata.index_status == RagIndexStatus.READY
             )
 
+    def live_active_document_ids(self) -> set[str]:
+        """Snapshot sources still eligible to support cached answers."""
+        now = self._clock()
+        with self._lock:
+            return {
+                document_id
+                for document_id, document in self._documents.items()
+                if document.metadata.expires_at > now
+                and document.metadata.active_for_retrieval
+                and document.metadata.index_status == RagIndexStatus.READY
+            }
+
     def activate(
         self, owner_scope_id: str, analysis_id: str, document_id: str
     ) -> tuple[RagDocument, ...]:

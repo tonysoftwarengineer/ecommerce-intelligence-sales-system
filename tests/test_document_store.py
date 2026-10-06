@@ -45,6 +45,18 @@ def test_document_store_removes_expired_documents() -> None:
     assert store.list("session-a", "analysis-a") == ()
 
 
+def test_live_active_document_ids_excludes_unindexed_and_expired_sources() -> None:
+    current = [datetime(2026, 9, 17, tzinfo=timezone.utc)]
+    store = TemporaryDocumentStore(timedelta(minutes=30), clock=lambda: current[0])
+    active = store.create("session-a", "analysis-a", "policy.md", RagDocumentType.POLICY, "One")
+    store.create("session-a", "analysis-a", "draft.md", RagDocumentType.POLICY, "Two")
+    store.activate("session-a", "analysis-a", active.metadata.document_id)
+
+    assert store.live_active_document_ids() == {active.metadata.document_id}
+    current[0] += timedelta(minutes=30)
+    assert store.live_active_document_ids() == set()
+
+
 def test_activating_latest_version_supersedes_but_retains_old_metadata() -> None:
     store = TemporaryDocumentStore(timedelta(minutes=30))
     first = store.create("session-a", "analysis-a", "policy.md", RagDocumentType.POLICY, "First")

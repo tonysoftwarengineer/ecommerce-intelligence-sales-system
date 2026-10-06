@@ -91,18 +91,61 @@ def test_answer_cache_evicts_least_recently_used_and_expires_entries() -> None:
 
     clock = _Clock()
     cache = RagAnswerCache(max_entries=2, ttl_seconds=60, clock=clock)
-    cache.put("a", {"claims": []})
-    cache.put("b", {"claims": []})
-    assert cache.get("a") is not None
-    cache.put("c", {"claims": []})
+    cache.put("a", {"claims": []}, ("doc-a",))
+    cache.put("b", {"claims": []}, ("doc-b",))
+    assert cache.get("a", ("doc-a",)) is not None
+    cache.put("c", {"claims": []}, ("doc-c",))
 
-    assert cache.get("b") is None
-    assert cache.get("a") is not None
-    assert cache.get("c") is not None
+    assert cache.get("b", ("doc-b",)) is None
+    assert cache.get("a", ("doc-a",)) is not None
+    assert cache.get("c", ("doc-c",)) is not None
 
     clock.now = 60.0
-    assert cache.get("a") is None
-    assert len(cache) == 1
+    assert cache.cleanup_stale(("doc-a", "doc-c")) == 2
+    assert len(cache) == 0
+
+
+def test_answer_cache_evicts_shared_and_multi_document_answers_with_removed_sources() -> None:
+    from api.rag_answer_cache import RagAnswerCache
+
+    cache = RagAnswerCache()
+    cache.put("shared", {"claims": []}, ("guest-a-doc",))
+    assert cache.get("shared", ("guest-b-doc",)) is not None
+    cache.put("multi", {"claims": []}, ("guest-c-doc", "guest-d-doc"))
+    cache.put("unrelated", {"claims": []}, ("guest-e-doc",))
+
+    assert cache.invalidate_documents(("guest-a-doc", "guest-d-doc")) == 2
+    assert cache.get("shared", ("guest-b-doc",)) is None
+    assert cache.get("multi", ("guest-c-doc",)) is None
+    assert cache.get("unrelated", ("guest-e-doc",)) is not None
+
+    assert cache.cleanup_stale(()) == 1
+    assert len(cache) == 0
+
+
+def test_cache_sweep_removes_answer_when_its_document_expires() -> None:
+    from datetime import datetime, timedelta, timezone
+
+    from api.document_store import TemporaryDocumentStore
+    from api.rag_answer_cache import RagAnswerCache
+    from src.rag.contracts import RagDocumentType
+
+    current = [datetime(2026, 10, 5, tzinfo=timezone.utc)]
+    store = TemporaryDocumentStore(timedelta(minutes=2), clock=lambda: current[0])
+    document = store.create("guest", "analysis", "policy.md", RagDocumentType.POLICY, "Text")
+    store.activate("guest", "analysis", document.metadata.document_id)
+    cache = RagAnswerCache(ttl_seconds=24 * 60 * 60)
+    cache.put(
+        "answer",
+        {"claims": [{"supporting_quote": "Text"}]},
+        (document.metadata.document_id,),
+    )
+
+    current[0] += timedelta(minutes=2)
+    # Store reads may remove expired documents before the scheduled cleanup sees them.
+    assert store.list("guest", "analysis") == ()
+    assert cache.cleanup_stale(store.live_active_document_ids()) == 1
+    assert len(cache) == 0
 
 
 def test_daily_budget_is_app_wide_and_resets_at_utc_midnight() -> None:

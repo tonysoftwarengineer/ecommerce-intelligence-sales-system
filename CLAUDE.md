@@ -33,7 +33,7 @@ When updating, keep these headings and replace only the factual content beneath 
 
 ### Updater and date
 
-Claude Code — 2026-10-04 (Stage B reviewed; dashboard UI redesign complete and CI verified)
+Codex — 2026-10-05 (document-answer cache retention and sample guide corrected)
 
 ### Completed phase
 
@@ -137,6 +137,12 @@ Pre-testing hardening is complete (user-approved order; commits dec59bb, a9750c8
   warns against private data) and per-answer Helpful / Not helpful votes counted in the
   content-free answer metrics.
 
+The document-answer cache now evicts entries supported by deleted or superseded documents, and
+when their analysis or guest session is removed. The periodic sweep removes entries whose sources
+have expired or become inactive, as well as entries past the cache TTL. Identical active documents
+can still share a verified answer across guests; the sample retailer walkthrough now names the
+current **Add document** button.
+
 ### Changed areas
 
 - The generic business workflow remains: CSV upload, explicit mapping, validation and quarantine,
@@ -148,6 +154,8 @@ Pre-testing hardening is complete (user-approved order; commits dec59bb, a9750c8
 - RAG Phase 1 retrieval is frozen and independently usable. Phase 2 adds claim-level grounded
   answers with exact support quotes and deterministic citation verification. Gemini and Groq are
   explicit selectable providers, but Phase 2 remains experimental.
+- The answer cache tracks temporary source document IDs in memory for precise invalidation; it
+  stores no guest IDs. A shared entry is evicted when any of its source documents is removed.
 - Deployment and portfolio documentation are committed. Use the linked reports for detailed
   findings rather than copying evidence into this snapshot.
 - CI (`.github/workflows/ci.yml`) has four jobs, all on Python 3.12 with `-c constraints.txt`
@@ -227,6 +235,10 @@ Pre-testing hardening is complete (user-approved order; commits dec59bb, a9750c8
   open-at-top fix; with the fix removed they failed (opened 3,972 px and 5,219 px down). A
   scratch check (not committed) found no text below 12 px and no horizontal scroll at 390 px,
   and 44 px menu targets.
+- Cache-retention repair: 482 backend tests, Ruff lint/format, mypy, and all 10 Playwright journeys
+  passed locally on isolated ports. Tests cover deletion, superseding, analysis/guest cleanup,
+  cross-guest sharing, source expiry, and an in-flight answer after source removal. No real provider
+  or locked RAG evaluation was run.
 - Phase 2 Stage B: [GitHub Actions run 37221296252](https://github.com/tonysoftwarengineer/ecommerce-intelligence-sales-system/actions/runs/37221296252)
   on 90dfbfb passed all four jobs: backend, frontend, e2e, and docker. Locally,
   Ruff, format, mypy, 476 backend tests, TypeScript, frontend lint/build, and
@@ -318,7 +330,8 @@ Pre-testing hardening is complete (user-approved order; commits dec59bb, a9750c8
   [triage record](docs/evaluation/dependency_security_triage.md).
 - The answer cache, daily budget, and feedback counts are process-local: they reset on restart and
   are not shared across replicas. Feedback votes are visible only via the token-guarded
-  observability endpoint; written feedback lives in public GitHub issues.
+  observability endpoint; written feedback lives in public GitHub issues. Passive source expiry is
+  reflected in cache eviction during the background cleanup cycle (every 60 seconds).
 - Validation errors render at the top of the workspace, far from the button the user clicked,
   so on a long page an error can look like nothing happened. Noted, not changed.
 - Starlette 1.7 warns that its test client will move from `httpx` to `httpx2` (test-only).
