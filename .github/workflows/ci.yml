@@ -16,10 +16,6 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      # CPU-only torch, matching Dockerfile.api: the app never uses a GPU, and
-      # PyPI's Linux wheel pulls several GB of NVIDIA libraries.
-      - run: pip install --index-url https://download.pytorch.org/whl/cpu "$(grep '^torch==' constraints.txt)"
-
       - run: pip install -r requirements-dev.txt -c constraints.txt
 
       - name: Lint
@@ -83,10 +79,6 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      # CPU-only torch, matching Dockerfile.api: the app never uses a GPU, and
-      # PyPI's Linux wheel pulls several GB of NVIDIA libraries.
-      - run: pip install --index-url https://download.pytorch.org/whl/cpu "$(grep '^torch==' constraints.txt)"
-
       - run: pip install -r requirements.txt -c constraints.txt
 
       - uses: actions/setup-node@v4
@@ -102,9 +94,7 @@ jobs:
         run: npx playwright install --with-deps chromium
         working-directory: frontend
 
-      # playwright.config.ts starts both the API (fake RAG provider, tfidf
-      # retrieval backend) and the Vite dev server itself, so no real
-      # GEMINI_API_KEY or embedding-model download is needed here.
+      # playwright.config.ts starts both the API and the Vite dev server itself.
       - name: Browser journey
         run: npm run test:e2e
         working-directory: frontend
@@ -121,10 +111,12 @@ jobs:
       - name: Build image
         run: docker build -f Dockerfile.api -t ei-api:ci .
 
+      - name: Report image size
+        run: docker image ls ei-api:ci --format 'ei-api:ci {{.Size}}'
+
       - name: Start container
         run: |
-          docker run -d --name ei-api -p 8000:8000 \
-            -e RAG_RETRIEVAL_BACKEND=tfidf -e RAG_ANSWER_PROVIDER=fake ei-api:ci
+          docker run -d --name ei-api -p 8000:8000 ei-api:ci
 
       # Startup no longer downloads data, so this normally answers within seconds.
       # The five-minute ceiling only guards against a slow CI runner.

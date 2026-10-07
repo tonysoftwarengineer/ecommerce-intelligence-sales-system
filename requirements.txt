@@ -14,13 +14,6 @@ pandas==2.3.3
 numpy==2.4.6
 openpyxl==3.1.5
 
-# --- Lexical retrieval (TF-IDF) ---
-scikit-learn==1.6.1
-
-# --- Retrieval evaluation (lazy-loaded by the RAG subsystem) ---
-chromadb==1.5.9
-sentence-transformers==5.1.2
-
 # --- API ---
 fastapi==0.141.1
 # Pinned directly: fastapi accepts starlette>=0.46, so pip would otherwise keep
@@ -29,7 +22,7 @@ starlette==1.7.0
 python-multipart==0.0.32
 uvicorn[standard]==0.54.0
 python-dotenv==1.2.3     # local .env loading
-httpx==0.28.1           # Gemini/Groq REST answer providers; also used by fastapi.testclient
+httpx==0.28.1           # public-data downloads in product-demand evaluation; also fastapi.testclient
 
 # Test and lint/type-check tooling live in requirements-dev.txt so the
 # production image and Docker build don't ship pytest/ruff/mypy.

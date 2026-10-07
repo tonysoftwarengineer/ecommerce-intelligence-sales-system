@@ -2,38 +2,27 @@ FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    HF_HOME=/app/.cache/huggingface
+    PIP_NO_CACHE_DIR=1
 
 WORKDIR /app
 
 # Create the unprivileged runtime user first so application files can be copied
 # in already owned by it. A later `chown -R` would duplicate every file into a
-# new image layer (about 700 MB here).
+# new image layer.
 RUN groupadd --system app && useradd --system --gid app --home /app app && \
     chown app:app /app
 
 COPY requirements.txt constraints.txt ./
-# The embedding model runs on CPU. PyPI's Linux torch wheel pulls in NVIDIA GPU
-# libraries (several GB); PyTorch's CPU index ships the same release without them.
-# The version comes from constraints.txt so it is defined in one place.
 # The cache mount keeps downloaded wheels between builds, so changing one pin
 # re-downloads only that package. It lives outside the image, so the image is
 # unchanged; PIP_NO_CACHE_DIR is overridden only for this step.
 RUN --mount=type=cache,target=/root/.cache/pip \
     unset PIP_NO_CACHE_DIR && \
     python -m pip install --upgrade pip && \
-    python -m pip install --index-url https://download.pytorch.org/whl/cpu \
-        "$(grep '^torch==' constraints.txt)" && \
     python -m pip install -r requirements.txt -c constraints.txt
 
 COPY --chown=app:app . .
 USER app
-
-# Fail the image build, rather than the first user request, if the pinned model
-# cannot be downloaded. It runs as the runtime user, so the HF_HOME cache is
-# already owned by the account that reads it.
-RUN python -m scripts.preload_rag_model
 
 EXPOSE 8000
 

@@ -50,7 +50,8 @@ def test_generic_analytics_include_only_supported_optional_breakdowns() -> None:
     }
     assert result["top_categories"][0] == {"category": "Shoes", "revenue": 275.0}
     assert result["revenue_by_region"][0] == {"region": "Abuja", "revenue": 200.0}
-    assert result["top_customers"][0] == {"customer_id": "C2", "revenue": 200.0}
+    # Customer IDs mean little to an owner, so no per-customer ranking is produced (ADR-018).
+    assert "top_customers" not in result
 
 
 def test_generic_analytics_do_not_invent_missing_capabilities() -> None:

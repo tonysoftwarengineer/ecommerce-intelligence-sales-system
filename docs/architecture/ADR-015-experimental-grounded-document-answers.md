@@ -1,6 +1,6 @@
 # ADR-015: Experimental Grounded Document Answers
 
-**Status:** Accepted (experimental release)  
+**Status:** Superseded by [ADR-018](ADR-018-refocus-on-explaining-sales.md) (document answers removed)  
 **Date:** 2026-09-18  
 **Deciders:** Project owner
 

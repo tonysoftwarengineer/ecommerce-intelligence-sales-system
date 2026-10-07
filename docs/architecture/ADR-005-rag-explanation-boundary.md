@@ -1,8 +1,12 @@
 # ADR-005: RAG Is a Bounded Explanation Layer
 
-**Status:** Accepted  
+**Status:** Accepted; document retrieval withdrawn by [ADR-018](ADR-018-refocus-on-explaining-sales.md)  
 **Date:** 2026-08-20  
 **Deciders:** Project owner
+
+> **2026-10-07:** The document-retrieval part of this boundary is withdrawn ([ADR-018](ADR-018-refocus-on-explaining-sales.md)). The rest
+> still applies to the planned "Ask about your sales" feature: the validated report is the only
+> source of financial values, and a deterministic check verifies every number the AI states.
 
 ## Context
 

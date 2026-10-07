@@ -235,12 +235,7 @@ test("shows a category fallback when sparse products are jointly predictable", a
   await expect(page.getByText(/does not allocate demand to individual products/)).toBeVisible();
 });
 
-test("walks a fictional online retailer from sales upload to demand preview and document evidence", async ({ page }) => {
-  let answerRequests = 0;
-  page.on("request", (request) => {
-    // Exact path: "/rag/answer-feedback" also contains "/rag/answer".
-    if (new URL(request.url()).pathname.endsWith("/rag/answer")) answerRequests += 1;
-  });
+test("walks a fictional online retailer from sales upload to the demand preview", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /Try a sample retailer/ }).click();
   await expect(page.getByRole("heading", { name: "retailer_sales.csv" })).toBeVisible();
@@ -265,139 +260,10 @@ test("walks a fictional online retailer from sales upload to demand preview and 
   await expect(page.getByText("7 piece")).toBeVisible();
   await expect(page.getByText(/not restocking instructions/)).toBeVisible();
 
-  const panel = page.locator(".evidence-search");
-  await expect(panel.getByRole("heading", { name: "Ask about your documents" })).toBeVisible();
-  await panel.getByRole("button", { name: "Add sample shipping policy" }).click();
-  await expect(panel.getByText("1 searchable document")).toBeVisible({ timeout: 30_000 });
-  expect(answerRequests).toBe(0);
-
-  const question = panel.getByLabel("Ask a question about the documents above (English)");
-  await question.fill("How long does standard Lagos delivery take?");
-  await panel.getByRole("button", { name: "Get answer from documents" }).click();
-  await expect(panel.getByRole("heading", { name: "Answer from your documents" })).toBeVisible();
-  const feedbackRequest = page.waitForRequest("**/rag/answer-feedback");
-  await panel.getByRole("button", { name: "Helpful", exact: true }).click();
-  expect((await feedbackRequest).postDataJSON()).toEqual({ helpful: true });
-  await expect(panel.getByText("Thanks, your feedback was recorded.")).toBeVisible();
   await expect(page.getByRole("link", { name: "Give feedback" })).toHaveAttribute(
     "href",
     /issues\/new\?template=feedback\.yml/,
   );
-  await expect(
-    panel.getByRole("paragraph").filter({ hasText: "2 to 4 business days" }),
-  ).toBeVisible();
-  await panel.getByText("Technical retrieval evidence").click();
-  await expect(panel.getByText("Retrieval score")).toBeVisible();
-
-  await page.route("**/rag/answer", async (route) => {
-    await route.fulfill({
-      status: 429,
-      contentType: "application/json",
-      headers: { "Retry-After": "60" },
-      body: JSON.stringify({
-        detail: "Too many grounded-answer requests. Please try again in 60 seconds.",
-      }),
-    });
-  });
-  await question.fill("How long does standard delivery take?");
-  await panel.getByRole("button", { name: "Get answer from documents" }).click();
-  await expect(
-    panel
-      .getByRole("alert")
-      .filter({ hasText: "Too many grounded-answer requests. Please try again in 60 seconds." }),
-  ).toBeVisible();
-  await expect(panel.getByRole("heading", { name: "Answer from your documents", exact: true })).toHaveCount(0);
-  await page.unroute("**/rag/answer");
-
-  await page.route("**/rag/answer", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        status: "unavailable",
-        analysis_id: "browser-test",
-        search_scope: "active_latest_documents_in_anonymous_guest_analysis",
-        provider: "groq_rest",
-        model: "openai/gpt-oss-20b",
-        latency_ms: 1,
-        reason_codes: ["answer_provider_unavailable"],
-        claims: [],
-        evidence: [
-          {
-            chunk_id: "browser-shipping-chunk",
-            document_id: "browser-shipping-document",
-            document_version: 1,
-            document_type: "policy",
-            filename: "shipping.md",
-            heading: "Delivery",
-            excerpt: "Standard Lagos delivery takes 2 to 4 business days.",
-            citation: "shipping.md v1 § Delivery · chunk 1",
-            rank: 1,
-            untrusted_data: true,
-            technical: {
-              retrieval_score: 0.9,
-              method_scores: {},
-              rerank_score: null,
-            },
-          },
-        ],
-        technical: {
-          selected_method: "tfidf",
-          searched_document_count: 1,
-          searched_chunk_count: 1,
-          retrieval_latency_ms: 1,
-        },
-      }),
-    });
-  });
-  await question.fill("What is the delivery policy?");
-  await panel.getByRole("button", { name: "Get answer from documents" }).click();
-  await expect(
-    panel.getByRole("heading", { name: "Document answer is temporarily unavailable" }),
-  ).toBeVisible();
-  await expect(
-    panel.getByText(
-      "Relevant evidence was found, but Groq is temporarily unavailable. No answer was generated. Please try again in a few minutes.",
-    ),
-  ).toBeVisible();
-  await page.unroute("**/rag/answer");
-
-  await page.route("**/rag/answer", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        status: "unavailable",
-        analysis_id: "browser-test",
-        search_scope: "active_latest_documents_in_anonymous_guest_analysis",
-        provider: "groq_rest",
-        model: "openai/gpt-oss-20b",
-        latency_ms: 1,
-        reason_codes: ["answer_provider_unavailable", "daily_answer_budget_exhausted"],
-        claims: [],
-        evidence: [],
-        technical: {
-          selected_method: "tfidf",
-          searched_document_count: 1,
-          searched_chunk_count: 1,
-          retrieval_latency_ms: 1,
-        },
-      }),
-    });
-  });
-  await question.fill("What does standard delivery cost?");
-  await panel.getByRole("button", { name: "Get answer from documents" }).click();
-  await expect(
-    panel.getByRole("heading", { name: "Today's free demo answers are used up" }),
-  ).toBeVisible();
-  await expect(panel.getByText(/you can ask again tomorrow/)).toBeVisible();
-  await expect(panel.getByText(/Groq is temporarily unavailable/)).toHaveCount(0);
-  await page.unroute("**/rag/answer");
-
-  await question.fill("Which television advertisement caused profit to increase?");
-  await panel.getByRole("button", { name: "Get answer from documents" }).click();
-  await expect(panel.getByRole("heading", { name: "Not enough information in these documents" })).toBeVisible();
-  await expect(panel.getByText(/so we did not guess/)).toBeVisible();
 });
 
 test("jumps between dashboard sections from the sidebar", async ({ page }) => {

@@ -1,5 +1,10 @@
 # Architecture Case Study: Evidence-Backed Sales Intelligence
 
+> **Update 2026-10-07:** The document-answer (RAG) feature described in parts of this study was
+> removed to focus the product on explaining sales numbers
+> ([ADR-018](architecture/ADR-018-refocus-on-explaining-sales.md)). Those sections are kept as a
+> record of the design; the last version with the feature is the Git tag `before-refocus`.
+
 ## Executive summary
 
 This portfolio MVP focuses on small online retailers selling repeat-purchase

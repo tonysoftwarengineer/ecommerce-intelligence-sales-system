@@ -33,14 +33,21 @@ When updating, keep these headings and replace only the factual content beneath 
 
 ### Updater and date
 
-Claude Code — 2026-10-06 (Codex's cache-retention commit reviewed; README rewritten)
+Claude Code — 2026-10-07 (refocus Phase 1: document-answer feature removed, ADR-018)
 
 ### Completed phase
 
+**Refocus (2026-10-07, [ADR-018](docs/architecture/ADR-018-refocus-on-explaining-sales.md), written by
+the user).** The product is for online retailers who want to understand their sales numbers. The
+document-answer (RAG) feature and the Top Customers card were removed; product demand stays as a
+quiet labelled preview; the next AI feature is "Ask about your sales" (the AI only phrases numbers
+Python validated). The last version with documents is the Git tag `before-refocus`. Every
+paragraph below that describes RAG, Groq/Gemini, the answer cache, budget, or feedback votes is
+history, not the current product.
+
 The committed portfolio MVP now includes the generic sales workflow, diagnostics, bounded
-product-demand previews, RAG evidence retrieval, experimental grounded document answers, API,
-frontend, browser coverage, and deployment scaffolding. The most recent completed research phase
-was the DataCo public-data product-forecast coverage diagnosis.
+product-demand previews, API, frontend, browser coverage, and deployment scaffolding. The most
+recent completed research phase was the DataCo public-data product-forecast coverage diagnosis.
 
 The repository is now on GitHub (public: `tonysoftwarengineer/ecommerce-intelligence-sales-system`,
 remote `origin`, branch `main`). The CI coverage gaps from the architecture review are closed and
@@ -164,18 +171,23 @@ RAG Phase 1/2 history, product-demand history, tests). `AGENTS.md` now points to
   `api.main:app`. Historical Olist research results remain in the README, labelled as history.
 - Product demand remains a seven-day, units-only planning preview. The DataCo audit investigated
   low coverage without changing its methods, eligibility rules, API, or dashboard trust gate.
-- RAG Phase 1 retrieval is frozen and independently usable. Phase 2 adds claim-level grounded
-  answers with exact support quotes and deterministic citation verification. Gemini and Groq are
-  explicit selectable providers, but Phase 2 remains experimental.
-- The answer cache tracks temporary source document IDs in memory for precise invalidation; it
-  stores no guest IDs. A shared entry is evicted when any of its source documents is removed.
+- Refocus Phase 1 removed `src/rag/`, the `/rag/*` and RAG answer-metrics routes, the document
+  store, retrieval, answer service, cache, observability and daily budget, the dashboard documents
+  panel and answer feedback, their tests, fixtures and evaluation scripts, and the Top Customers
+  card with the `top_customers` analytics field. `chromadb`, `sentence-transformers` and
+  `scikit-learn` left `requirements.txt`; `constraints.txt` fell from 113 to 41 pins (72 removed,
+  no version changed) including `torch` and `transformers`. The generic limiter moved to
+  `api/rate_limit.py` (`RateLimiter`); the dashboard section is now "How revenue adds up".
+  ADR-014/015 are superseded, ADR-013 is superseded for documents only, ADR-005's explanation
+  boundary carries over to the next AI feature; the case study, roadmap and evidence matrix carry
+  dated retirement notes.
 - Deployment and portfolio documentation are committed. Use the linked reports for detailed
   findings rather than copying evidence into this snapshot.
-- CI (`.github/workflows/ci.yml`) has four jobs, all on Python 3.12 with `-c constraints.txt`
-  and CPU-only `torch`: `backend` (lint, format check, mypy, full pytest, `pip-audit` of
+- CI (`.github/workflows/ci.yml`) has four jobs, all on Python 3.12 with `-c constraints.txt`:
+  `backend` (lint, format check, mypy, full pytest, `pip-audit` of
   `constraints.txt`), `frontend`
   (tsc, `npm run lint`, build, `npm audit`), `e2e` (needs `backend` + `frontend`; Playwright
-  against the fake RAG provider and tfidf retrieval backend, no real key needed), and `docker`
+  against freshly started servers, no key needed), and `docker`
   (needs `backend`; builds `Dockerfile.api`, waits for `/api/v1/health`, fails if it runs as root).
 - Quality-gate fixes: all 15 files that failed `ruff format --check` were reformatted (cosmetic
   only); `scripts/__init__.py` was added so mypy resolves `scripts.<name>` once; mypy now excludes
@@ -185,23 +197,15 @@ RAG Phase 1/2 history, product-demand history, tests). `AGENTS.md` now points to
   could not import `src`/`api`/`scripts` on CI.
 - `frontend/package-lock.json` now resolves `nanoid` 3.3.19 instead of 3.3.16; no application code,
   backend requirement, or CI audit policy changed.
-- RAG evaluation unwraps `ProviderGeneration` only for private tracing and retains
-  verified claims separately. Diagnostics distinguish empty retrieval, missing
-  reference evidence, outages, verifier rejections, and answer/reference mismatches.
-  Supplemental provider-available coverage never replaces full-suite coverage.
-  The offline evaluator paces calls outside answer timing; warm-up is not established.
-- `Dockerfile.api` creates an unprivileged `app` user, fixes `HF_HOME=/app/.cache/huggingface` so
-  the build-time model preload stays readable after `chown`, switches to that user, and adds a
-  stdlib-only `HEALTHCHECK` against `/api/v1/health` (the slim image has no curl/wget).
+- `Dockerfile.api` creates an unprivileged `app` user, copies files already owned by it, switches
+  to that user, and adds a stdlib-only `HEALTHCHECK` against `/api/v1/health` (the slim image has no curl/wget).
 - `requirements-dev.txt` (`-r requirements.txt` plus pytest, ruff, mypy) is the local/CI install;
   `requirements.txt` is runtime-only and is all the image installs. `httpx` stays in runtime
-  because the Gemini/Groq providers use it. CI `backend` installs the dev file and `pip-audit`
+  because product-demand public-data code downloads with it. CI `backend` installs the dev file and `pip-audit`
   scans `constraints.txt`; `e2e` installs runtime only because it just boots uvicorn.
-- `UPLOAD_RATE_LIMIT_PER_MINUTE` (default 20) caps `POST /uploads/preview` and
-  `POST /analyses/{id}/rag/documents` per guest, sharing one budget, before any file is read;
-  excess returns 429 with `Retry-After`. It reuses the generic `RagAnswerRateLimiter` class and its
-  cleanup/shutdown wiring in `api/main.py`. Like the answer limiter, it keys on the guest cookie, so
-  a client that discards cookies gets a fresh budget; it is a portfolio control, not abuse defense.
+- `UPLOAD_RATE_LIMIT_PER_MINUTE` (default 20) caps `POST /uploads/preview` per guest before any
+  file is read; excess returns 429 with `Retry-After`. It uses `RateLimiter` (`api/rate_limit.py`)
+  with cleanup/shutdown wiring in `api/main.py`. It keys on the guest cookie, so a client that discards cookies gets a fresh budget; it is a portfolio control, not abuse defense.
 
 ### Verification
 
@@ -248,6 +252,14 @@ RAG Phase 1/2 history, product-demand history, tests). `AGENTS.md` now points to
   open-at-top fix; with the fix removed they failed (opened 3,972 px and 5,219 px down). A
   scratch check (not committed) found no text below 12 px and no horizontal scroll at 390 px,
   and 44 px menu targets.
+- Refocus Phase 1 (document feature removed): locally ruff, format (176 files), mypy (69 source
+  files), `pytest -q` (392 passed; was 482), tsc, lint, build, and all 10 Playwright journeys on
+  fresh servers with no RAG settings. A collected-test comparison against the `before-refocus` tag
+  showed every removed test came from the document feature; three were added (a retired-routes
+  check and the two limiter tests moved to `tests/test_rate_limit.py`). The new 41-pin lock was
+  built from a fresh Python 3.12 venv with `-c constraints.txt`; the full suite passed there first,
+  and a repo-wide import check found no use of any removed package. CI now prints the image size
+  in the `docker` job (it was 2.62 GB with `torch`).
 - Cache-retention repair: 482 backend tests, Ruff lint/format, mypy, and all 10 Playwright journeys
   passed locally on isolated ports. Tests cover deletion, superseding, analysis/guest cleanup,
   cross-guest sharing, source expiry, and an in-flight answer after source removal. No real provider
@@ -319,36 +331,13 @@ RAG Phase 1/2 history, product-demand history, tests). `AGENTS.md` now points to
   data-fit limitations; it did not relax or replace the trust gate.
 - A permissioned, anonymized export from one independent online retailer is still required for the
   intended-audience forecasting checkpoint.
-- RAG Phase 2 answers are experimental. Gemini quota/rate limits and the first Groq development
-  run's 429/400 provider failures prevented conclusive scoring. The untouched locked Phase 2
-  evaluation has not run, and the Groq result is not evidence of reliable answer quality.
-- Literal reference matching is not semantic completeness or entailment. The old
-  private trace stored a wrapper placeholder instead of claims; its missing answers
-  and processing-only latency cannot be recovered. The new trace captured answers:
-  two scored misses were supported by alternative sources that the development
-  references do not accept. Do not infer model omissions from these two misses.
-- The fresh run's nine transport errors lack exception-subtype metadata, so their
-  root cause remains unknown. The user reported a network interruption, but it does
-  not establish every failure's cause. The HTTP 400 is also undiagnosed. No supported
-  multi-document case returned an answer in this attempt; their completeness and
-  full-suite provider quality remain unverified.
-- Sessions, uploads, document indexes, and analysis state are temporary and process-local; this is
+- Sessions, uploads, and analysis state are temporary and process-local; this is
   not a production multi-tenant deployment.
 - `mypy` does not check `tests/`; test behavior is enforced by pytest only.
-- The dependency audits remain report-only. The frontend lockfile audits cleanly. On
-  2026-10-04, `pip-audit` reported **15 findings in 3 embedding/index packages** before and
-  after Stage B (the earlier snapshot recorded 11; the advisory database changed).
-  This phase did not change `chromadb`, `transformers`, or `sentence-transformers`.
-  Fixes require a separate benchmarked embedding-stack upgrade; see the historical
-  [triage record](docs/evaluation/dependency_security_triage.md).
-- The answer cache, daily budget, and feedback counts are process-local: they reset on restart and
-  are not shared across replicas. Feedback votes are visible only via the token-guarded
-  observability endpoint; written feedback lives in public GitHub issues. Passive source expiry is
-  reflected in cache eviction during the background cleanup cycle (every 60 seconds).
-- The background cleanup task runs on the event loop and acquires `rag_transaction_lock`
-  synchronously (`api/main.py`, twice per cycle since 8466276). Document indexing holds that lock
-  in a worker thread while embedding, so a cleanup tick during indexing stalls every request until
-  indexing finishes. Pre-existing; fix by running the locked cleanup steps in a worker thread.
+- The dependency audits remain report-only. The frontend lockfile audits cleanly. Before the
+  refocus, `pip-audit` reported 15 findings, all in `transformers`, `chromadb` and
+  `sentence-transformers`; none of those packages is installed any more. Check the CI `backend`
+  log for the current count.
 - Validation errors render at the top of the workspace, far from the button the user clicked,
   so on a long page an error can look like nothing happened. Noted, not changed.
 - Starlette 1.7 warns that its test client will move from `httpx` to `httpx2` (test-only).
@@ -365,29 +354,20 @@ RAG Phase 1/2 history, product-demand history, tests). `AGENTS.md` now points to
 
 ### Next recommended work
 
-1. **Phase 2 deploy.** One replica only (stores are process-local). Set `GUEST_COOKIE_SECURE=true`,
-   exact `CORS_ORIGINS`, keep `DEVELOPMENT_OBSERVABILITY_ENABLED` off, and verify the guest-session
-   cookie works when frontend and API are on different domains. The user chose Oracle Cloud
-   Always Free (Hugging Face Docker Spaces now need PRO); the proposed plan is the uncommitted
-   `docs/plans/oracle-deploy.md` (Caddy in front, one URL, Groq). Paused by the user. After it
-   goes live, add the live link and a short demo video to the README.
-2. **PDF/HTML document support** as its own phase with an ADR: text extraction only (no OCR),
-   strip HTML scripts and hidden elements (prompt-injection risk), size/page caps, parser CVE
-   review, and an evaluation set with real PDFs before claiming support (AGENTS.md rule).
-3. **AI explanation of the Python calculations** (later, own ADR): the model may only narrate
-   numbers the code produced, each cited and verified by exact match; it never calculates.
-4. Embedding-stack upgrade (`sentence-transformers`/`transformers`, review `chromadb`) as its own
-   phase, with the frozen retrieval benchmark before and after; clears most remaining findings.
-5. Consider bumping the GitHub Actions versions to clear the Node 20 deprecation warnings.
-6. Obtain and safely prepare a permissioned, anonymized independent-retailer export, then run the
+1. **Refocus Phase 2: deploy the lighter app.** One replica (stores are process-local),
+   `GUEST_COOKIE_SECURE=true`, observability off. The user chose Oracle Cloud Always Free; the
+   uncommitted `docs/plans/oracle-deploy.md` (Caddy, one URL) needs revisiting now that the image
+   no longer contains `torch` or an embedding model, and Groq is not needed until Phase 3.
+2. **Refocus Phase 3: "Ask about your sales"** (own ADR). Deeper plain-code driver analysis
+   (products, categories, regions, new vs returning customers, discounts, refunds), an AI layer
+   that only phrases validated facts, a deterministic number verifier, plain refusals for causal or
+   unsupported questions, a budget/rate limit/cache rebuilt from Git history, and an evaluation
+   set. Revenue only: no cost or profit (user decision).
+3. **Refocus Phase 4:** a fact sheet for the user, then the README rewritten in the user's own words.
+4. Consider bumping the GitHub Actions versions to clear the Node 20 deprecation warnings.
+5. Obtain and safely prepare a permissioned, anonymized independent-retailer export, then run the
    existing offline evaluator without changing forecast policy after seeing its results.
-7. Propose an offline development-reference audit of alternate passages supporting
-   the same fact, with explicit scope/exception checks. Keep current scores and locked
-   references unchanged; version any later scoring change separately. Investigate
-   transport reliability and the undiagnosed Groq `400` with bounded diagnostics before
-   another provider run. Do not switch models or add hybrid retrieval just to raise
-   coverage. Stability/locked runs remain blocked pending complete development evidence.
-8. Treat any cold-start forecasting improvement as a separate user-approved design and evaluation
+6. Treat any cold-start forecasting improvement as a separate user-approved design and evaluation
    phase; do not loosen the live preview rules merely to increase coverage.
 
 ### Decisions requiring the user
@@ -395,10 +375,6 @@ RAG Phase 1/2 history, product-demand history, tests). `AGENTS.md` now points to
 - Whether an appropriate independent-retailer export can be obtained and used for the pending
   forecasting checkpoint.
 - Whether to begin a separate cold-start product forecasting design phase before that checkpoint.
-- Whether to run the untouched RAG Phase 2 locked evaluation after a provider passes every
-  hard-development gate.
-- Whether to approve the offline development-reference audit and separately scoped
-  transport/HTTP-error diagnostics before another real-provider run.
 
 ## Detailed References
 

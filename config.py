@@ -34,9 +34,8 @@ CORS_ORIGIN_REGEX = os.environ.get("CORS_ORIGIN_REGEX", r"http://(localhost|127\
 # this fixed lifetime. Limits are configurable without editing application code.
 UPLOAD_TTL_MINUTES = int(os.environ.get("UPLOAD_TTL_MINUTES", "30"))
 UPLOAD_MAX_BYTES = int(os.environ.get("UPLOAD_MAX_BYTES", str(10 * 1024 * 1024)))
-# Caps CSV and RAG document upload attempts per anonymous guest, independent of
-# the RAG-answer provider budget above -- these cost local CPU/memory, not a
-# paid provider call, so the default is more generous.
+# Caps CSV upload attempts per anonymous guest. Parsing costs local CPU and
+# memory, so a client cannot keep the server busy with repeated uploads.
 UPLOAD_RATE_LIMIT_PER_MINUTE = int(os.environ.get("UPLOAD_RATE_LIMIT_PER_MINUTE", "20"))
 
 # Derived analysis sessions contain no original upload bytes. They live longer
@@ -53,29 +52,6 @@ GUEST_COOKIE_SECURE = os.environ.get("GUEST_COOKIE_SECURE", "false").lower() in 
     "yes",
 }
 
-# RAG source documents are intentionally ephemeral in the portfolio release.
-RAG_DOCUMENT_TTL_MINUTES = int(os.environ.get("RAG_DOCUMENT_TTL_MINUTES", "120"))
-RAG_DOCUMENT_MAX_BYTES = int(os.environ.get("RAG_DOCUMENT_MAX_BYTES", str(2 * 1024 * 1024)))
-RAG_RETRIEVAL_BACKEND = os.environ.get("RAG_RETRIEVAL_BACKEND", "chroma").strip().lower()
-RAG_EMBEDDING_MODEL = os.environ.get("RAG_EMBEDDING_MODEL", "all-MiniLM-L6-v2")
-RAG_CHUNK_MAX_TOKENS = int(os.environ.get("RAG_CHUNK_MAX_TOKENS", "224"))
-RAG_CHUNK_OVERLAP_TOKENS = int(os.environ.get("RAG_CHUNK_OVERLAP_TOKENS", "32"))
-RAG_RELEVANCE_THRESHOLD = float(os.environ.get("RAG_RELEVANCE_THRESHOLD", "0.40"))
-RAG_LEXICAL_RERANKING = os.environ.get("RAG_LEXICAL_RERANKING", "false").lower() in {
-    "1",
-    "true",
-    "yes",
-}
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
-RAG_ANSWER_MODEL = os.environ.get("RAG_ANSWER_MODEL", "gemini-3.8-flash").strip()
-RAG_ANSWER_TIMEOUT_SECONDS = float(os.environ.get("RAG_ANSWER_TIMEOUT_SECONDS", "5.0"))
-RAG_ANSWER_PROVIDER = os.environ.get("RAG_ANSWER_PROVIDER", "gemini").strip().lower()
-RAG_ANSWER_MAX_OUTPUT_TOKENS = int(os.environ.get("RAG_ANSWER_MAX_OUTPUT_TOKENS", "1024"))
-RAG_ANSWER_RATE_LIMIT_PER_MINUTE = int(os.environ.get("RAG_ANSWER_RATE_LIMIT_PER_MINUTE", "6"))
-# App-wide cap on provider-backed answers per UTC day, across every guest. The
-# per-guest limit above resets when a client discards its cookie; this does not.
-RAG_ANSWER_DAILY_BUDGET = int(os.environ.get("RAG_ANSWER_DAILY_BUDGET", "100"))
 DEVELOPMENT_OBSERVABILITY_ENABLED = os.environ.get(
     "DEVELOPMENT_OBSERVABILITY_ENABLED", "false"
 ).lower() in {"1", "true", "yes"}
@@ -96,12 +72,6 @@ def validate_observability_settings(enabled: bool, token: str) -> None:
         )
 
 
-if RAG_ANSWER_MAX_OUTPUT_TOKENS < 1:
-    raise ValueError("RAG_ANSWER_MAX_OUTPUT_TOKENS must be positive")
-if RAG_ANSWER_RATE_LIMIT_PER_MINUTE < 1:
-    raise ValueError("RAG_ANSWER_RATE_LIMIT_PER_MINUTE must be positive")
-if RAG_ANSWER_DAILY_BUDGET < 1:
-    raise ValueError("RAG_ANSWER_DAILY_BUDGET must be positive")
 if UPLOAD_RATE_LIMIT_PER_MINUTE < 1:
     raise ValueError("UPLOAD_RATE_LIMIT_PER_MINUTE must be positive")
 validate_observability_settings(DEVELOPMENT_OBSERVABILITY_ENABLED, DEVELOPMENT_OBSERVABILITY_TOKEN)

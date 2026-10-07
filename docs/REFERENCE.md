@@ -11,8 +11,7 @@ overview; this page holds the full API, configuration, data rules, and evaluatio
 - [API](#api)
 - [Data lifetime and isolation](#data-lifetime-and-isolation)
 - [Configuration](#configuration)
-- [Document search evaluation (RAG Phase 1)](#document-search-evaluation-rag-phase-1)
-- [Document answers status (RAG Phase 2)](#document-answers-status-rag-phase-2)
+- [Retired document-answer feature](#retired-document-answer-feature)
 - [Product-demand forecasting history](#product-demand-forecasting-history)
 - [Tests](#tests)
 
@@ -20,34 +19,26 @@ overview; this page holds the full API, configuration, data rules, and evaluatio
 
 The portfolio-level design, evidence, trade-offs, current limits, and future AI
 boundary are documented in the
-[architecture case study](ARCHITECTURE_CASE_STUDY.md). The accepted RAG
-decision is recorded in
-[ADR-005](architecture/ADR-005-rag-explanation-boundary.md). The account-free
-portfolio boundary is recorded in
-[ADR-013](architecture/ADR-013-portfolio-guest-session-rag-foundation.md).
-[ADR-014](architecture/ADR-014-rag-phase-1-retrieval.md) records the
-evaluated retrieval design. Guest isolation, atomic latest-version indexing,
-MiniLM/Chroma retrieval, honest abstention, citations, and the dashboard evidence
-panel are implemented. Experimental grounded document answers are implemented
-behind claim-level citation and exact-quote checks; their locked Phase 2 release
-evaluation is still pending.
+[architecture case study](ARCHITECTURE_CASE_STUDY.md).
+[ADR-018](architecture/ADR-018-refocus-on-explaining-sales.md) records the refocus on explaining
+sales numbers. The account-free guest-session boundary for uploads and analyses is recorded in
+[ADR-013](architecture/ADR-013-portfolio-guest-session-rag-foundation.md); the boundary for a
+future AI explanation layer is [ADR-005](architecture/ADR-005-rag-explanation-boundary.md).
 
 ```text
 business CSV → preview → map → validate → quarantine/transform → analytics → dashboard
                                       ↘ eligible forecast previews and diagnostics
-approved document → chunk/index latest version → retrieve evidence → verify cited AI claims or abstain
 ```
 
 ## Setup notes
 
-`constraints.txt` locks every package, including transitive ones such as `torch`
-and `numpy`, to the versions the test suite passed with. Install without it and
+`constraints.txt` locks every package, including transitive ones such as `numpy`
+and `starlette`, to the versions the test suite passed with. Install without it and
 those libraries may resolve to newer, untested versions. Use
 `pip install -r requirements.txt -c constraints.txt` alone only when reproducing
 the production image, which never installs test/lint tooling (see `Dockerfile.api`).
 
-The app does not download an external sales dataset at startup. The optional document embedding
-model is preloaded in the demo image; local semantic retrieval may download its model on first use.
+The app does not download an external sales dataset or model at startup.
 
 ## Roadmap status
 
@@ -67,10 +58,8 @@ The intended user is the owner or operator of a small online shop selling
 repeat-purchase physical products. Their first job is to understand validated
 sales changes: recognized revenue, orders, average order value, supported
 category or region contributors, data limitations, and what to investigate.
-Approved shipping, refund, or catalogue documents can be searched for cited
-evidence; they do not change sales calculations. Seven-day product-unit demand
-remains an optional **Preview — not decision-ready** feature, not a restocking
-instruction.
+Seven-day product-unit demand remains an optional **Preview — not decision-ready**
+feature, not a restocking instruction.
 
 The current sales analysis requires a mapped order ID, order date, customer ID,
 and a valid revenue representation (row total, price × quantity, or order total).
@@ -82,7 +71,7 @@ mapped, confirmed category and compatible units. Missing or ambiguous evidence
 reduces capability or returns an unavailable result; it is never invented.
 
 Use the [fictional retailer browser walkthrough](../tests/fixtures/retailer_demo/README.md)
-for one coherent CSV and document example. The
+for one coherent CSV example. The
 [retailer evaluation matrix](evaluation/online_retailer_evidence_matrix.md)
 separates exercised behavior from independent accuracy evidence.
 
@@ -128,34 +117,22 @@ requires the business to confirm the meaning of its data before calculations:
 | `GET /api/v1/analyses/{analysis_id}/canonical.csv` | Download accepted canonical rows |
 | `GET /api/v1/analyses/{analysis_id}/quarantine.csv` | Download rejected rows and reasons |
 | `DELETE /api/v1/analyses/{analysis_id}` | Immediately remove an analysis session |
-| `POST /api/v1/analyses/{analysis_id}/rag/documents` | Atomically store, chunk, and index an approved UTF-8 text/Markdown source for one analysis |
-| `GET /api/v1/analyses/{analysis_id}/rag/documents` | List source metadata for the owned analysis |
-| `DELETE /api/v1/analyses/{analysis_id}/rag/documents/{document_id}` | Remove one analysis-scoped RAG source |
-| `POST /api/v1/analyses/{analysis_id}/rag/retrieve` | Return up to three cited evidence excerpts or an honest abstention; no generated answer |
-| `POST /api/v1/analyses/{analysis_id}/rag/answer` | Return only verified, claim-level grounded answers or a bounded abstention/unavailable result |
-| `POST /api/v1/analyses/{analysis_id}/rag/answer-feedback` | Record a helpful / not helpful vote on an answer; stores only aggregate counts, no text |
-| `GET /api/v1/observability/rag-answer-metrics` | Aggregate grounded-answer metrics when enabled and called with the admin token; otherwise 404 |
 
 The API serves the retailer workflow without loading a benchmark sales dataset.
 
 ## Data lifetime and isolation
 
 Business CSV uploads are held in process memory for at most 30 minutes and are removed early by the
-web app after analysis succeeds. Derived analysis sessions and approved RAG source documents expire
-after 2 hours. An HttpOnly anonymous guest cookie scopes uploads, analyses, and documents so another
-browser session receives a not-found response. IDs are random, expired data is cleaned automatically,
+web app after analysis succeeds. Derived analysis sessions expire after 2 hours. An HttpOnly
+anonymous guest cookie scopes uploads and analyses so another browser session receives a not-found response. IDs are random, expired data is cleaned automatically,
 and the stores support immediate deletion. These
 process-local stores are suitable for the current single-server version; they are not shared between
 multiple API instances and do not survive a server restart.
-Cached document answers are removed when a supporting document is deleted or superseded. Periodic
-cleanup removes answers whose sources have expired, along with expired cache entries.
 
 ## Configuration
 
 All settings have working local defaults — deploying should never require editing source.
-For local experimental grounded-answer development, copy `.env.example` to an
-ignored `.env` and provide the key for the explicitly selected provider.
-The example selects Groq with `openai/gpt-oss-20b`; Gemini remains selectable.
+For local development, copy `.env.example` to an ignored `.env`.
 Environment variables supplied by a deployment always override values from that
 local file.
 
@@ -166,96 +143,29 @@ local file.
 | `CORS_ORIGIN_REGEX` | any `localhost` port | Dev fallback, used only when `CORS_ORIGINS` is empty |
 | `UPLOAD_TTL_MINUTES` | `30` | Fixed lifetime for temporary business CSV uploads |
 | `UPLOAD_MAX_BYTES` | `10485760` | Maximum accepted CSV size in bytes (10 MiB) |
-| `UPLOAD_RATE_LIMIT_PER_MINUTE` | `20` | CSV and RAG document upload attempts per anonymous guest per rolling minute |
+| `UPLOAD_RATE_LIMIT_PER_MINUTE` | `20` | CSV upload attempts per anonymous guest per rolling minute |
 | `ANALYSIS_TTL_MINUTES` | `120` | Lifetime of derived business-analysis sessions |
 | `GUEST_SESSION_TTL_MINUTES` | `120` | Lifetime of an anonymous isolated portfolio-demo session |
 | `GUEST_SESSION_COOKIE` | `ei_guest_session` | HttpOnly guest-session cookie name |
 | `GUEST_COOKIE_SECURE` | `false` | Set `true` when the API is served over HTTPS |
-| `RAG_DOCUMENT_TTL_MINUTES` | `120` | Lifetime of temporary approved RAG sources |
-| `RAG_DOCUMENT_MAX_BYTES` | `2097152` | Maximum accepted RAG source size (2 MiB) |
-| `GEMINI_API_KEY` | empty | Server-only Gemini credential; answers are unavailable when absent |
-| `GROQ_API_KEY` | empty | Server-only Groq credential; required when `RAG_ANSWER_PROVIDER=groq` |
-| `RAG_ANSWER_MODEL` | `gemini-3.8-flash` | Model for the explicitly selected experimental answer provider |
-| `RAG_ANSWER_TIMEOUT_SECONDS` | `5.0` | Provider request timeout |
-| `RAG_ANSWER_PROVIDER` | `gemini` | `gemini`, `groq`, or `fake`; use `fake` only for deterministic CI/browser tests |
-| `RAG_ANSWER_MAX_OUTPUT_TOKENS` | `1024` | Hard maximum generated tokens for one grounded answer |
-| `RAG_ANSWER_RATE_LIMIT_PER_MINUTE` | `6` | Provider-backed answer attempts per anonymous guest per rolling minute |
-| `RAG_ANSWER_DAILY_BUDGET` | `100` | Provider-backed answers per UTC day across all visitors; repeated identical questions are served from a cache and do not count |
 | `DEVELOPMENT_OBSERVABILITY_ENABLED` | `false` | Enable the two aggregate metrics endpoints; requires `DEVELOPMENT_OBSERVABILITY_TOKEN` or the API refuses to start |
 | `DEVELOPMENT_OBSERVABILITY_TOKEN` | empty | Shared admin secret; callers send `Authorization: Bearer <token>`. A missing or wrong token returns 404 |
 
-## Document search evaluation (RAG Phase 1)
+## Retired document-answer feature
 
-The frozen semantic configuration uses `all-MiniLM-L6-v2`, 224-token chunks,
-32-token overlap, and a 0.40 cosine-similarity gate. On the untouched 20-case
-locked test it reached 93.75% Top-1 source accuracy, 94.12% Top-3 source recall,
-100% unsupported-question abstention, and 8.482 ms warm p95 latency. The full
-reports are in [`docs/evaluation/rag_phase_1`](evaluation/rag_phase_1).
+Until 2026-10-07 the app also answered questions about uploaded policy documents. It was removed
+to keep the product focused on sales numbers
+([ADR-018](architecture/ADR-018-refocus-on-explaining-sales.md)); the last version with it is the
+Git tag `before-refocus`. Its evaluation records remain as history:
 
-```bash
-# Tune only against the development split.
-python -m scripts.evaluate_rag_retrieval --backend chroma --split development --select-development
-
-# Run a frozen configuration against the locked split once.
-python -m scripts.evaluate_rag_retrieval --backend chroma --split locked_test \
-  --config docs/evaluation/rag_phase_1/chroma_frozen_config.json
-
-# Run during a future deployed-image build so runtime does not download a model.
-python -m scripts.preload_rag_model
-
-# The provided API image performs that preload during its build.
-docker build -f Dockerfile.api -t ecommerce-intelligence-api .
-```
-
-## Document answers status (RAG Phase 2)
-
-Grounded document answers are implemented as an experimental layer over the
-frozen Phase 1 retriever. Documents are isolated by guest and analysis. Every
-returned claim must cite a retrieved chunk and include an exact quote that the
-API verifies before returning the response. Missing credentials, provider
-failures, invalid model output, and unsupported questions return no generated
-claims; the analytics dashboard remains operational.
-
-The deterministic fake-provider development run validates the wiring,
-verification, abstention, isolation, and latency paths. It intentionally does
-not count as a real-provider quality evaluation and did not pass the gold-claim
-coverage gate. The untouched locked Phase 2 run and manual failure review remain
-pending, so the feature stays labelled experimental. See
-[`ADR-015`](architecture/ADR-015-experimental-grounded-document-answers.md)
-and the [development report](evaluation/rag_phase2_development_fake.md).
-
-The separate `hard-development` suite contains eight longer synthetic documents
-for one fictional retailer and twenty adversarial development questions. It is
-for answer-quality repair only: its detailed per-case trace is written under
-ignored `data/private/`, and it never changes the frozen Phase 1 corpus or the
-untouched Phase 2 locked set.
-
-The recorded real Gemini hard-development run had 18 provider-unavailable cases
-(`gemini_http_429`) and no supported-case provider responses. It is inconclusive
-about answer quality, and the feature remains experimental. See the
-[hard-development report](evaluation/rag_phase2_hard_development.md).
-
-The first Groq hard-development run returned seven verified answers and passed
-unsupported-question abstention, isolation, and latency checks. It was still
-inconclusive: eleven supported cases were unavailable (ten `groq_http_429` and
-one `groq_http_400`), leaving 28.6% gold-claim coverage. No retrieval or answer
-policy was tuned after this run. See the separate
-[Groq hard-development report](evaluation/rag_phase2_groq_hard_development.md).
-
-Two later Groq development runs on 2026-09-27 were also inconclusive. A paced
-run returned 15 answers with 57.1% reference coverage but three provider
-failures ([report](evaluation/rag_phase2_groq_hard_development_2026-09-27.md)).
-A rerun with repaired diagnostics returned eight answers and ten provider
-failures (nine transport errors, one HTTP 400), with 28.6% full-suite coverage
-([report](evaluation/rag_phase2_groq_hard_development_diagnostics_rerun_2026-09-27.md)).
-Every returned answer passed exact-quote verification, unsupported questions were
-always declined, and no document crossed a scope boundary. These are
-provider-availability results, not evidence of reliable answer quality.
-
-```bash
-# Development-only: emits a private trace and a sanitized summary.
-python -m scripts.evaluate_rag_answers --suite hard-development --split development
-```
+- Retrieval (MiniLM embeddings in ChromaDB, 224-token chunks, 0.40 relevance gate) on an untouched
+  20-case locked test: 93.8% top-1 source accuracy, 94.1% top-3 source recall, 100% decline rate
+  for unsupported questions, and 0 cross-visitor leakage
+  ([report](evaluation/rag_phase_1/chroma_locked_test.md)).
+- Grounded answers with exact-quote verification stayed experimental: every real-provider
+  development run with Gemini or Groq was inconclusive because of provider rate limits and request
+  failures, and the locked answer evaluation never ran
+  ([latest report](evaluation/rag_phase2_groq_hard_development_diagnostics_rerun_2026-09-27.md)).
 
 ## Product-demand forecasting history
 
@@ -278,8 +188,7 @@ unapproved. A simple sparse-abstention candidate then failed a fresh holdout,
 and a three-block consistency rule failed development screening; neither changed
 the live policy. The next forecast checkpoint needs independent retailer data
 and clearer stockout and lifecycle evidence, not further tuning on those scored
-cohorts. RAG Phase 1 retrieval is evaluated and Phase 2 document answers are
-experimental. Real-business validation, authenticated durable storage, tenant
+cohorts. Real-business validation, authenticated durable storage, tenant
 boundaries, protected monitoring, and deployment remain later production
 foundations.
 
@@ -308,7 +217,7 @@ The suite starts isolated API and frontend servers (it never reuses one already 
 `E2E_REUSE_SERVER=1`). Its journeys cover a complete evidence-rich analysis, status values that
 are still loading versus failed, required quarantine confirmation, honest unavailable states for
 limited data, product-demand previews and the category fallback, discount rules cleared when a
-replacement CSV lacks them, the fictional retailer from upload to document answers, and the
+replacement CSV lacks them, the fictional retailer from upload to the demand preview, and the
 dashboard's section sidebar and keyboard-only phone menu. Failure screenshots, traces, and
 screen recordings are written to ignored local test artifact directories. Use
 `npm run test:e2e:report` to inspect the HTML report.

@@ -1,6 +1,6 @@
 # ADR-014: Use Evaluated MiniLM and Ephemeral Chroma for Phase 1 Retrieval
 
-**Status:** Accepted  
+**Status:** Superseded by [ADR-018](ADR-018-refocus-on-explaining-sales.md) (document retrieval removed)  
 **Date:** 2026-09-17  
 **Decider:** Project owner
 

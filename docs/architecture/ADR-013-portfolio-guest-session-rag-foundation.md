@@ -1,6 +1,6 @@
 # ADR-013: Portfolio RAG Uses Isolated Ephemeral Guest Sessions
 
-**Status:** Accepted  
+**Status:** Accepted for CSV uploads and analyses; superseded for documents by [ADR-018](ADR-018-refocus-on-explaining-sales.md)  
 **Date:** 2026-09-17  
 **Decider:** Project owner
 

@@ -1,3 +1,9 @@
+UPDATE 2026-10-07: The RAG document-answer feature described below was removed to focus the
+product on explaining sales numbers (docs/architecture/ADR-018-refocus-on-explaining-sales.md).
+The RAG sections are kept as a record; the last version with the feature is Git tag
+before-refocus. The next AI work is "Ask about your sales", an explanation layer over the
+validated report.
+
 DIAGNOSTIC INTELLIGENCE ROADMAP
 Status: Milestones 1-10 and product-demand phases 11A through 11B-6 are
 complete. Two sparse safeguard candidates failed their predeclared gates; the

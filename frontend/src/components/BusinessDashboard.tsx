@@ -7,7 +7,6 @@ import { BreakdownBarChart } from "./BreakdownBarChart";
 import { DashboardLayout, type DashboardSectionGroup } from "./DashboardShell";
 import { DeltaBadge } from "./DeltaBadge";
 import { DiagnosticIntelligence } from "./DiagnosticIntelligence";
-import { EvidenceSearchPanel } from "./EvidenceSearchPanel";
 import { KpiCard } from "./KpiCard";
 import { ProductDemandPanel } from "./ProductDemandPanel";
 import { RevenueChart } from "./RevenueChart";
@@ -188,17 +187,16 @@ export function BusinessDashboard({
       </section>
 
       <section
-        id="customers"
+        id="revenue-math"
         className="dash-section stagger"
-        aria-labelledby="customers-heading"
+        aria-labelledby="revenue-math-heading"
         style={{ "--i": 3 } as React.CSSProperties}
       >
-        <h2 id="customers-heading" className="dash-section__title">Customers and revenue math</h2>
+        <h2 id="revenue-math-heading" className="dash-section__title">How revenue adds up</h2>
         <div className="grid">
-          <TopBusinessCustomers customers={analysis.top_customers} formatValue={money} />
           <FinancialIntegrity analysis={analysis} formatValue={money} />
+          <OperationalSignals analysis={analysis} formatValue={money} />
         </div>
-        <OperationalSignals analysis={analysis} formatValue={money} />
       </section>
 
       <div id="changes" className="dash-section stagger" style={{ "--i": 4 } as React.CSSProperties}>
@@ -220,10 +218,6 @@ export function BusinessDashboard({
           sourceDataDecisionReady={analysis.data_quality.decision_ready}
           hasProductCategories={analysis.capabilities.category_analysis}
         />
-      </div>
-
-      <div id="documents" className="dash-section stagger" style={{ "--i": 7 } as React.CSSProperties}>
-        <EvidenceSearchPanel analysisId={analysis.analysis_id} isSample={isSample} />
       </div>
 
       {analysis.warnings.length > 0 ? (
@@ -251,7 +245,7 @@ const DASHBOARD_SECTIONS: DashboardSectionGroup[] = [
     sections: [
       { id: "trend", label: "Revenue trend" },
       { id: "breakdowns", label: "Categories and regions" },
-      { id: "customers", label: "Customers and revenue math" },
+      { id: "revenue-math", label: "How revenue adds up" },
     ],
   },
   {
@@ -261,10 +255,6 @@ const DASHBOARD_SECTIONS: DashboardSectionGroup[] = [
       { id: "estimate", label: "Revenue estimate" },
       { id: "demand", label: "Product demand", tag: "Preview" },
     ],
-  },
-  {
-    label: "Documents",
-    sections: [{ id: "documents", label: "Ask about your documents", tag: "Beta" }],
   },
 ];
 
@@ -397,45 +387,6 @@ function modelLabel(value: string | null): string {
 function formatExpiry(value: string): string {
   return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(
     new Date(value),
-  );
-}
-
-function TopBusinessCustomers({
-  customers,
-  formatValue,
-}: {
-  customers: GenericAnalysisResponse["top_customers"];
-  formatValue: (value: number) => string;
-}) {
-  const max = Math.max(...customers.map((customer) => customer.revenue), 1);
-  return (
-    <div className="card">
-      <div className="card__head">
-        <div>
-          <h3 className="card__title">Top Customers</h3>
-          <p className="card__sub">By net lifetime revenue</p>
-        </div>
-      </div>
-      <ol className="customers">
-        {customers.map((customer, index) => (
-          <li className="customers__row" key={customer.customer_id}>
-            <span className="customers__rank">{index + 1}</span>
-            <span className="customers__id" title={customer.customer_id}>
-              {customer.customer_id.length > 12
-                ? `${customer.customer_id.slice(0, 11)}…`
-                : customer.customer_id}
-            </span>
-            <span className="customers__bar" aria-hidden="true">
-              <span
-                className="customers__bar-fill"
-                style={{ width: `${Math.max((customer.revenue / max) * 100, 0)}%` }}
-              />
-            </span>
-            <span className="customers__value">{formatValue(customer.revenue)}</span>
-          </li>
-        ))}
-      </ol>
-    </div>
   );
 }
 

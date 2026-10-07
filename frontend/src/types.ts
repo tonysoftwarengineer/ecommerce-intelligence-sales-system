@@ -248,7 +248,6 @@ export interface GenericAnalysisResponse {
     units_returned: number | null;
   };
   revenue_by_month: Array<{ month: string; revenue: number }>;
-  top_customers: Array<{ customer_id: string; revenue: number }>;
   top_categories: CategoryRevenue[];
   revenue_by_region: Array<{ region: string; revenue: number }>;
   forecast: GenericForecast;
@@ -358,87 +357,4 @@ export interface ProductDemandResponse {
   category_dataset_reason_codes: string[];
   category_dataset_explanations: string[];
   warning: string;
-}
-
-export type RagDocumentType =
-  | "policy"
-  | "supplier_notice"
-  | "product_catalog"
-  | "operating_calendar"
-  | "other_approved";
-
-export interface RagDocumentMetadata {
-  document_id: string;
-  analysis_id: string;
-  filename: string;
-  document_type: RagDocumentType;
-  content_hash: string;
-  version: number;
-  byte_count: number;
-  created_at: string;
-  expires_at: string;
-  index_status: "pending" | "ready" | "superseded";
-  active_for_retrieval: boolean;
-  superseded_by_document_id: string | null;
-}
-
-export interface RagDocumentListResponse {
-  storage_scope: "anonymous_guest_analysis";
-  durable: false;
-  documents: RagDocumentMetadata[];
-}
-
-export interface RagEvidence {
-  chunk_id: string;
-  document_id: string;
-  document_version: number;
-  document_type: RagDocumentType;
-  filename: string;
-  heading: string | null;
-  excerpt: string;
-  citation: string;
-  rank: number;
-  untrusted_data: true;
-  technical: {
-    retrieval_score: number;
-    method_scores: Record<string, number>;
-    rerank_score: number | null;
-  };
-}
-
-export interface RagRetrievalResponse {
-  status: "evidence_available" | "insufficient_evidence" | "unavailable";
-  analysis_id: string;
-  search_scope: string;
-  selected_method: string;
-  searched_document_count: number;
-  searched_chunk_count: number;
-  latency_ms: number;
-  reason_codes: string[];
-  evidence: RagEvidence[];
-}
-
-export interface RagGroundedClaim {
-  text: string;
-  chunk_id: string;
-  supporting_quote: string;
-  citation: string;
-}
-
-export interface RagAnswerResponse {
-  status: "grounded_answer" | "insufficient_evidence" | "unavailable";
-  analysis_id: string;
-  search_scope: string;
-  provider: string;
-  model: string;
-  latency_ms: number;
-  reason_codes: string[];
-  claims: RagGroundedClaim[];
-  evidence: RagEvidence[];
-  technical: {
-    selected_method: string;
-    searched_document_count: number;
-    searched_chunk_count: number;
-    retrieval_latency_ms: number;
-  };
 }

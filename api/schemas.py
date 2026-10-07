@@ -18,8 +18,6 @@ from src.generic_sales.contracts import (
 from src.product_demand.contracts import ProductIdentitySource
 from src.product_demand.service import ProductDemandAnalysisStatus
 from src.product_demand.trust_policy import ProductDemandTrustState
-from src.rag.answers import AnswerStatus
-from src.rag.contracts import RagDocumentType, RagIndexStatus, RetrievalStatus
 
 
 class HealthResponse(BaseModel):
@@ -50,112 +48,6 @@ class AnalysisObservabilityResponse(BaseModel):
     latency_ms: AnalysisLatencyMetrics
     diagnostics: dict[str, DiagnosticAvailabilityMetrics]
     forecast_status_counts: dict[str, int]
-
-
-class RagAnswerObservabilityResponse(BaseModel):
-    scope: str
-    answer_requests: int
-    provider_backed_attempts: int
-    rate_limited_requests: int
-    cache_hits: int
-    feedback_helpful: int
-    feedback_not_helpful: int
-    usage_unavailable_count: int
-    latency_ms: AnalysisLatencyMetrics
-    input_tokens: AnalysisLatencyMetrics
-    output_tokens: AnalysisLatencyMetrics
-    total_tokens: AnalysisLatencyMetrics
-    status_counts: dict[str, int]
-    reason_code_counts: dict[str, int]
-    provider_model_counts: dict[str, int]
-
-
-class RagDocumentMetadataResponse(BaseModel):
-    document_id: str
-    analysis_id: str
-    filename: str
-    document_type: RagDocumentType
-    content_hash: str
-    version: int
-    byte_count: int
-    created_at: datetime
-    expires_at: datetime
-    index_status: RagIndexStatus
-    active_for_retrieval: bool
-    superseded_by_document_id: Optional[str]
-
-
-class RagDocumentListResponse(BaseModel):
-    storage_scope: str
-    durable: bool
-    documents: list[RagDocumentMetadataResponse]
-
-
-class RagRetrievalRequest(BaseModel):
-    question: str = Field(min_length=3, max_length=500)
-
-
-class RagAnswerFeedbackRequest(BaseModel):
-    helpful: bool
-
-
-class RagTechnicalEvidenceResponse(BaseModel):
-    retrieval_score: float
-    method_scores: dict[str, float]
-    rerank_score: Optional[float]
-
-
-class RagEvidenceResponse(BaseModel):
-    chunk_id: str
-    document_id: str
-    document_version: int
-    document_type: RagDocumentType
-    filename: str
-    heading: Optional[str]
-    excerpt: str
-    citation: str
-    rank: int
-    untrusted_data: bool
-    technical: RagTechnicalEvidenceResponse
-
-
-class RagRetrievalResponse(BaseModel):
-    status: RetrievalStatus
-    analysis_id: str
-    search_scope: str
-    selected_method: str
-    searched_document_count: int
-    searched_chunk_count: int
-    latency_ms: float
-    reason_codes: list[str]
-    evidence: list[RagEvidenceResponse]
-
-
-class RagAnswerClaimResponse(BaseModel):
-    text: str
-    chunk_id: str
-    supporting_quote: str
-    citation: str
-
-
-class RagAnswerTechnicalResponse(BaseModel):
-    selected_method: str
-    searched_document_count: int
-    searched_chunk_count: int
-    retrieval_latency_ms: float
-
-
-class RagAnswerResponse(BaseModel):
-    status: AnswerStatus
-    analysis_id: str
-    search_scope: str
-    provider: str
-    model: str
-    latency_ms: float
-    reason_codes: list[str]
-    claims: list[RagAnswerClaimResponse]
-    evidence: list[RagEvidenceResponse]
-    technical: RagAnswerTechnicalResponse
 
 
 class CsvPreviewResponse(BaseModel):
@@ -335,11 +227,6 @@ class GenericMonthlyRevenue(BaseModel):
     revenue: float
 
 
-class GenericCustomerRevenue(BaseModel):
-    customer_id: str
-    revenue: float
-
-
 class GenericCategoryRevenue(BaseModel):
     category: str
     revenue: float
@@ -476,7 +363,6 @@ class GenericAnalysisResponse(BaseModel):
     capabilities: GenericCapabilities
     kpis: GenericKpis
     revenue_by_month: list[GenericMonthlyRevenue]
-    top_customers: list[GenericCustomerRevenue]
     top_categories: list[GenericCategoryRevenue]
     revenue_by_region: list[GenericRegionRevenue]
     forecast: GenericForecast

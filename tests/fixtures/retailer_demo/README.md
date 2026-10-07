@@ -19,13 +19,7 @@ workflow; it does not validate forecast accuracy on a real retailer.
    open day and has no unrecorded stockout days. Confirm those fixture facts and
    evaluate. Any number shown is a seven-day **preview**, not a restock target.
    For a real shop, these confirmations require business records; do not guess.
-5. Upload `shipping_policy.md` in the document panel, choose **Policy**, and
-   select **Add document**. Ask: “How long does standard Lagos delivery take
-   after dispatch?” If the selected answer provider is available, inspect the quote and citation. If
-   it is unavailable, the sales dashboard remains usable. An unrelated
-   question should return insufficient evidence.
 
-The automated Chromium journey uses a deterministic fake answer provider. It
-checks the user flow and citation display, not real-provider quality. The first
-source is a single-SKU teaching fixture; the [retailer evaluation matrix](../../../docs/evaluation/online_retailer_evidence_matrix.md)
+The automated Chromium journey checks this user flow from upload to the demand
+preview. The source is a single-SKU teaching fixture; the [retailer evaluation matrix](../../../docs/evaluation/online_retailer_evidence_matrix.md)
 tracks broader and independent evidence gaps.

@@ -80,9 +80,6 @@ def analyze_canonical_sales(
         "revenue_by_month": [
             {"month": str(month), "revenue": _rounded(value)} for month, value in monthly.items()
         ],
-        "top_customers": _grouped_revenue_records(
-            df.assign(_revenue=revenue), "customer_id", "customer_id"
-        ),
         "top_categories": [],
         "revenue_by_region": [],
         "monthly_series": monthly.astype(float),

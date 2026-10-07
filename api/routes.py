@@ -5,12 +5,10 @@ from collections import Counter
 from datetime import datetime, timedelta
 from decimal import Decimal
 from io import BytesIO
-from pathlib import Path
-from threading import RLock
-from typing import Annotated, Optional
+from typing import Optional
 
 import pandas as pd
-from fastapi import APIRouter, Form, HTTPException, Request, Response, UploadFile
+from fastapi import APIRouter, HTTPException, Request, Response, UploadFile
 from pandas.errors import EmptyDataError, ParserError
 from starlette.concurrency import run_in_threadpool
 
@@ -21,23 +19,12 @@ from api.analysis_store import (
     AnalysisSession,
     AnalysisSessionStore,
 )
-from api.document_store import DocumentNotFoundError, TemporaryDocumentStore
 from api.product_demand import (
     product_demand_analysis_to_response,
     product_demand_assumptions_from_request,
     product_demand_data_quality_unavailable_response,
 )
-from api.rag_answer_cache import (
-    RagAnswerCache,
-    RecordingAnswerProvider,
-    ReplayAnswerProvider,
-    answer_cache_key,
-    to_portable,
-)
-from api.rag_answer_observability import RagAnswerObservability
-from api.rag_answer_rate_limit import RagAnswerDailyBudget, RagAnswerRateLimiter
-from api.rag_answer_service import answer_provider, provider_is_configured
-from api.rag_service import retrieval_service
+from api.rate_limit import RateLimiter
 from api.schemas import (
     AnalysisObservabilityResponse,
     CanonicalTransformRequest,
@@ -53,13 +40,6 @@ from api.schemas import (
     MappingSuggestionsResponse,
     ProductDemandRequest,
     ProductDemandResponse,
-    RagAnswerFeedbackRequest,
-    RagAnswerObservabilityResponse,
-    RagAnswerResponse,
-    RagDocumentListResponse,
-    RagDocumentMetadataResponse,
-    RagRetrievalRequest,
-    RagRetrievalResponse,
     SalesDataRequest,
     SchemaMappingRequest,
     SchemaMappingValidationResponse,
@@ -78,11 +58,6 @@ from config import (
     ANALYSIS_TTL_MINUTES,
     DEVELOPMENT_OBSERVABILITY_ENABLED,
     DEVELOPMENT_OBSERVABILITY_TOKEN,
-    RAG_ANSWER_DAILY_BUDGET,
-    RAG_ANSWER_MAX_OUTPUT_TOKENS,
-    RAG_ANSWER_RATE_LIMIT_PER_MINUTE,
-    RAG_DOCUMENT_MAX_BYTES,
-    RAG_DOCUMENT_TTL_MINUTES,
     UPLOAD_MAX_BYTES,
     UPLOAD_RATE_LIMIT_PER_MINUTE,
     UPLOAD_TTL_MINUTES,
@@ -99,9 +74,6 @@ from src.generic_sales.transformation import (
 from src.generic_sales.validation import validate_sales_data
 from src.mapping_suggestions import suggest_schema_mapping
 from src.product_demand.service import analyze_product_demand
-from src.rag.answers import AnswerProviderError, AnswerStatus, generate_grounded_answer
-from src.rag.contracts import RagDocumentMetadata, RagDocumentType
-from src.rag.index import IndexUnavailableError
 from src.schema_mapping import validate_schema_mapping
 
 router = APIRouter(prefix="/api/v1")
@@ -110,19 +82,8 @@ DISTINCT_VALUE_LIMIT = 100
 VALIDATION_ISSUE_SAMPLE_ROWS = 20
 upload_store = TemporaryUploadStore(ttl=timedelta(minutes=UPLOAD_TTL_MINUTES))
 analysis_store = AnalysisSessionStore(ttl=timedelta(minutes=ANALYSIS_TTL_MINUTES))
-document_store = TemporaryDocumentStore(ttl=timedelta(minutes=RAG_DOCUMENT_TTL_MINUTES))
 analysis_observability = AnalysisObservability()
-rag_answer_observability = RagAnswerObservability()
-rag_answer_rate_limiter = RagAnswerRateLimiter(RAG_ANSWER_RATE_LIMIT_PER_MINUTE)
-rag_answer_daily_budget = RagAnswerDailyBudget(RAG_ANSWER_DAILY_BUDGET)
-rag_answer_cache = RagAnswerCache()
-# Feedback is cheap but still capped so one client cannot inflate the counts.
-answer_feedback_rate_limiter = RagAnswerRateLimiter(30)
-# Reuses the same generic sliding-window limiter as the RAG-answer budget
-# above; it isn't RAG-specific, just named for its first caller.
-upload_rate_limiter = RagAnswerRateLimiter(UPLOAD_RATE_LIMIT_PER_MINUTE)
-APPROVED_RAG_SUFFIXES = {".md", ".txt"}
-rag_transaction_lock = RLock()
+upload_rate_limiter = RateLimiter(UPLOAD_RATE_LIMIT_PER_MINUTE)
 
 
 def _preview_dataframe(
@@ -197,7 +158,6 @@ def _get_analysis_session(owner_scope_id: str, analysis_id: str) -> AnalysisSess
     try:
         return analysis_store.get(owner_scope_id, analysis_id)
     except AnalysisExpiredError as exc:
-        _delete_analysis_rag_scope(owner_scope_id, analysis_id)
         raise HTTPException(
             status_code=410,
             detail="This sales analysis expired. Upload your CSV again to start a new one.",
@@ -286,61 +246,6 @@ def _safe_download_name(filename: str, suffix: str) -> str:
     return f"{safe_stem}_{suffix}.csv"
 
 
-def _rag_document_response(metadata: RagDocumentMetadata) -> dict:
-    return {
-        "document_id": metadata.document_id,
-        "analysis_id": metadata.analysis_id,
-        "filename": metadata.filename,
-        "document_type": metadata.document_type,
-        "content_hash": metadata.content_hash,
-        "version": metadata.version,
-        "byte_count": metadata.byte_count,
-        "created_at": metadata.created_at,
-        "expires_at": metadata.expires_at,
-        "index_status": metadata.index_status,
-        "active_for_retrieval": metadata.active_for_retrieval,
-        "superseded_by_document_id": metadata.superseded_by_document_id,
-    }
-
-
-def _rag_evidence_response(item) -> dict:
-    return {
-        "chunk_id": item.chunk_id,
-        "document_id": item.document_id,
-        "document_version": item.document_version,
-        "document_type": item.document_type,
-        "filename": item.filename,
-        "heading": item.heading,
-        "excerpt": item.excerpt,
-        "citation": item.citation,
-        "rank": item.rank,
-        "untrusted_data": True,
-        "technical": {
-            "retrieval_score": item.retrieval_score,
-            "method_scores": dict(item.method_scores),
-            "rerank_score": item.rerank_score,
-        },
-    }
-
-
-def _validate_english_question(question: str) -> str:
-    normalized = re.sub(r"\s+", " ", question).strip()
-    if len(normalized) < 3:
-        raise HTTPException(
-            status_code=422, detail="Please enter a question with at least three characters."
-        )
-    if any(ord(character) < 32 for character in normalized):
-        raise HTTPException(
-            status_code=422,
-            detail="Remove non-text control characters from your question and try again.",
-        )
-    letters = [character for character in normalized if character.isalpha()]
-    ascii_letters = [character for character in letters if character.isascii()]
-    if not ascii_letters or len(ascii_letters) / max(len(letters), 1) < 0.8:
-        raise HTTPException(status_code=422, detail="Please ask your document question in English.")
-    return normalized
-
-
 @router.get("/health", response_model=HealthResponse)
 def health():
     return HealthResponse(status="ok")
@@ -351,13 +256,6 @@ def analysis_metrics(request: Request):
     """Expose privacy-safe evaluation metrics to a caller holding the admin token."""
     _require_observability_access(request)
     return analysis_observability.snapshot()
-
-
-@router.get("/observability/rag-answer-metrics", response_model=RagAnswerObservabilityResponse)
-def rag_answer_metrics(request: Request):
-    """Expose aggregate answer metrics to a caller holding the admin token."""
-    _require_observability_access(request)
-    return rag_answer_observability.snapshot()
 
 
 @router.post("/uploads/preview", response_model=CsvPreviewResponse)
@@ -643,7 +541,6 @@ def delete_analysis(request: Request, analysis_id: str) -> Response:
     owner_scope_id = _owner_scope_id(request)
     try:
         analysis_store.get(owner_scope_id, analysis_id)
-        _delete_analysis_rag_scope(owner_scope_id, analysis_id)
         analysis_store.delete(owner_scope_id, analysis_id)
     except AnalysisNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Analysis session not found") from exc
@@ -657,326 +554,3 @@ def delete_upload(request: Request, upload_id: str) -> Response:
     except UploadNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Temporary upload not found") from exc
     return Response(status_code=204)
-
-
-@router.post(
-    "/analyses/{analysis_id}/rag/documents",
-    response_model=RagDocumentMetadataResponse,
-)
-async def upload_rag_document(
-    analysis_id: str,
-    request: Request,
-    file: UploadFile,
-    document_type: Annotated[RagDocumentType, Form()],
-):
-    """Atomically store, chunk and index one approved UTF-8 source."""
-    owner_scope_id = _consume_upload_rate_limit(request)
-    filename = Path(file.filename or "").name
-    if Path(filename).suffix.lower() not in APPROVED_RAG_SUFFIXES:
-        raise HTTPException(
-            status_code=400,
-            detail="Choose a text (.txt) or Markdown (.md) document saved as UTF-8.",
-        )
-    contents = await file.read(RAG_DOCUMENT_MAX_BYTES + 1)
-    if not contents:
-        raise HTTPException(
-            status_code=400, detail="This document is empty. Choose a file with text."
-        )
-    if len(contents) > RAG_DOCUMENT_MAX_BYTES:
-        raise HTTPException(
-            status_code=413, detail="This document is too large. Choose a smaller text file."
-        )
-    try:
-        text = contents.decode("utf-8")
-    except UnicodeDecodeError as exc:
-        raise HTTPException(
-            status_code=400, detail="Save this document as UTF-8 text and upload it again."
-        ) from exc
-    if not text.strip():
-        raise HTTPException(
-            status_code=400, detail="This document has no readable text. Choose another file."
-        )
-
-    # Embedding and indexing are CPU-bound. The whole locked block runs in one worker
-    # thread because rag_transaction_lock is a thread-owned RLock.
-    return await run_in_threadpool(
-        _store_and_index_rag_document, owner_scope_id, analysis_id, filename, document_type, text
-    )
-
-
-def _store_and_index_rag_document(
-    owner_scope_id: str,
-    analysis_id: str,
-    filename: str,
-    document_type: RagDocumentType,
-    text: str,
-) -> dict:
-    _get_analysis_session(owner_scope_id, analysis_id)
-    with rag_transaction_lock:
-        previous = tuple(
-            document
-            for document in document_store.active_documents(owner_scope_id, analysis_id)
-            if document.metadata.filename == filename
-        )
-        document = document_store.create(owner_scope_id, analysis_id, filename, document_type, text)
-        try:
-            retrieval_service.index_document(document)
-            for old_document in previous:
-                retrieval_service.delete_document(
-                    owner_scope_id, analysis_id, old_document.metadata.document_id
-                )
-            superseded = document_store.activate(
-                owner_scope_id, analysis_id, document.metadata.document_id
-            )
-            rag_answer_cache.invalidate_documents(old.metadata.document_id for old in superseded)
-        except (IndexUnavailableError, ValueError) as exc:
-            try:
-                retrieval_service.delete_document(
-                    owner_scope_id, analysis_id, document.metadata.document_id
-                )
-                for old_document in previous:
-                    retrieval_service.index_document(old_document)
-            except Exception:
-                pass
-            document_store.delete(owner_scope_id, analysis_id, document.metadata.document_id)
-            raise HTTPException(
-                status_code=503,
-                detail=(
-                    "We could not make this document searchable. Your previous version is still "
-                    "available; please try again."
-                ),
-            ) from exc
-        indexed = document_store.get(owner_scope_id, analysis_id, document.metadata.document_id)
-    return _rag_document_response(indexed.metadata)
-
-
-@router.get(
-    "/analyses/{analysis_id}/rag/documents",
-    response_model=RagDocumentListResponse,
-)
-def list_rag_documents(analysis_id: str, request: Request):
-    owner_scope_id = _owner_scope_id(request)
-    _get_analysis_session(owner_scope_id, analysis_id)
-    documents = document_store.list(owner_scope_id, analysis_id)
-    return {
-        "storage_scope": "anonymous_guest_analysis",
-        "durable": False,
-        "documents": [_rag_document_response(metadata) for metadata in documents],
-    }
-
-
-@router.delete(
-    "/analyses/{analysis_id}/rag/documents/{document_id}",
-    status_code=204,
-)
-def delete_rag_document(analysis_id: str, request: Request, document_id: str) -> Response:
-    owner_scope_id = _owner_scope_id(request)
-    _get_analysis_session(owner_scope_id, analysis_id)
-    with rag_transaction_lock:
-        try:
-            document_store.get(owner_scope_id, analysis_id, document_id)
-            retrieval_service.delete_document(owner_scope_id, analysis_id, document_id)
-            document_store.delete(owner_scope_id, analysis_id, document_id)
-            rag_answer_cache.invalidate_documents((document_id,))
-            if not document_store.active_documents(owner_scope_id, analysis_id):
-                retrieval_service.drop_scope(owner_scope_id, analysis_id)
-        except DocumentNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="RAG source document not found") from exc
-        except IndexUnavailableError as exc:
-            raise HTTPException(
-                status_code=503,
-                detail="Document could not be removed from the temporary evidence index",
-            ) from exc
-    return Response(status_code=204)
-
-
-@router.post(
-    "/analyses/{analysis_id}/rag/retrieve",
-    response_model=RagRetrievalResponse,
-)
-def retrieve_analysis_evidence(
-    analysis_id: str,
-    payload: RagRetrievalRequest,
-    request: Request,
-):
-    """Return source evidence only. Phase 1 intentionally generates no answer."""
-    owner_scope_id = _owner_scope_id(request)
-    _get_analysis_session(owner_scope_id, analysis_id)
-    question = _validate_english_question(payload.question)
-    with rag_transaction_lock:
-        result = retrieval_service.retrieve(owner_scope_id, analysis_id, question)
-    return {
-        "status": result.status,
-        "analysis_id": analysis_id,
-        "search_scope": "active_latest_documents_in_anonymous_guest_analysis",
-        "selected_method": result.selected_method,
-        "searched_document_count": result.searched_document_count,
-        "searched_chunk_count": result.searched_chunk_count,
-        "latency_ms": result.latency_ms,
-        "reason_codes": list(result.reason_codes),
-        "evidence": [_rag_evidence_response(item) for item in result.evidence],
-    }
-
-
-class _DailyBudgetExhaustedProvider:
-    """Fail closed without calling the provider once today's app-wide budget is spent."""
-
-    configured = True
-
-    def __init__(self, name: str, model: str) -> None:
-        self.name = name
-        self.model = model
-
-    def generate(self, question, evidence):
-        raise AnswerProviderError(
-            "Today's demo answer budget is used up.", "daily_answer_budget_exhausted"
-        )
-
-
-@router.post(
-    "/analyses/{analysis_id}/rag/answer",
-    response_model=RagAnswerResponse,
-)
-def answer_from_analysis_documents(
-    analysis_id: str,
-    payload: RagRetrievalRequest,
-    request: Request,
-):
-    """Return a verified, document-grounded answer or no generated claims."""
-    owner_scope_id = _owner_scope_id(request)
-    _get_analysis_session(owner_scope_id, analysis_id)
-    question = _validate_english_question(payload.question)
-    with rag_transaction_lock:
-        retrieval = retrieval_service.retrieve(owner_scope_id, analysis_id, question)
-    provider_attempted = False
-    cache_hit = False
-    cache_key = None
-    provider = answer_provider
-    source_document_ids = {item.document_id for item in retrieval.evidence}
-    if (
-        retrieval.status.value == "evidence_available"
-        and retrieval.evidence
-        and provider_is_configured(answer_provider)
-    ):
-        cache_key = answer_cache_key(
-            answer_provider.name,
-            answer_provider.model,
-            RAG_ANSWER_MAX_OUTPUT_TOKENS,
-            question,
-            retrieval.evidence,
-        )
-        with rag_transaction_lock:
-            cached_payload = (
-                rag_answer_cache.get(cache_key, source_document_ids)
-                if source_document_ids.issubset(document_store.live_active_document_ids())
-                else None
-            )
-        if cached_payload is not None:
-            cache_hit = True
-            provider = ReplayAnswerProvider(
-                answer_provider.name, answer_provider.model, cached_payload
-            )
-    if cache_key is not None and not cache_hit and rag_answer_daily_budget.remaining() == 0:
-        provider = _DailyBudgetExhaustedProvider(answer_provider.name, answer_provider.model)
-    elif cache_key is not None and not cache_hit:
-        decision = rag_answer_rate_limiter.consume(owner_scope_id)
-        if not decision.allowed:
-            rag_answer_observability.record_rate_limited(
-                answer_provider.name,
-                answer_provider.model,
-            )
-            raise HTTPException(
-                status_code=429,
-                detail=(
-                    "Too many grounded-answer requests. Please try again in "
-                    f"{decision.retry_after_seconds} seconds."
-                ),
-                headers={"Retry-After": str(decision.retry_after_seconds)},
-            )
-        if rag_answer_daily_budget.consume():
-            provider = RecordingAnswerProvider(answer_provider)
-            provider_attempted = True
-        else:
-            provider = _DailyBudgetExhaustedProvider(answer_provider.name, answer_provider.model)
-    result = generate_grounded_answer(question, retrieval, provider)
-    if (
-        isinstance(provider, RecordingAnswerProvider)
-        and cache_key is not None
-        and result.status == AnswerStatus.GROUNDED_ANSWER
-        and provider.payload is not None
-    ):
-        with rag_transaction_lock:
-            if source_document_ids.issubset(document_store.live_active_document_ids()):
-                rag_answer_cache.put(
-                    cache_key,
-                    to_portable(provider.payload, retrieval.evidence),
-                    source_document_ids,
-                )
-    rag_answer_observability.record_result(result, provider_attempted, cache_hit=cache_hit)
-    return {
-        "status": result.status,
-        "analysis_id": analysis_id,
-        "search_scope": "active_latest_documents_in_anonymous_guest_analysis",
-        "provider": result.provider,
-        "model": result.model,
-        "latency_ms": result.latency_ms,
-        "reason_codes": list(result.reason_codes),
-        "claims": [
-            {
-                "text": claim.text,
-                "chunk_id": claim.chunk_id,
-                "supporting_quote": claim.supporting_quote,
-                "citation": claim.citation,
-            }
-            for claim in result.claims
-        ],
-        "evidence": [_rag_evidence_response(item) for item in result.retrieval.evidence],
-        "technical": {
-            "selected_method": result.retrieval.selected_method,
-            "searched_document_count": result.retrieval.searched_document_count,
-            "searched_chunk_count": result.retrieval.searched_chunk_count,
-            "retrieval_latency_ms": result.retrieval.latency_ms,
-        },
-    }
-
-
-@router.post("/analyses/{analysis_id}/rag/answer-feedback", status_code=204)
-def record_answer_feedback(
-    analysis_id: str,
-    payload: RagAnswerFeedbackRequest,
-    request: Request,
-):
-    """Count a helpful / not helpful vote. Stores no question, answer, or guest ID."""
-    owner_scope_id = _owner_scope_id(request)
-    _get_analysis_session(owner_scope_id, analysis_id)
-    decision = answer_feedback_rate_limiter.consume(owner_scope_id)
-    if not decision.allowed:
-        raise HTTPException(
-            status_code=429,
-            detail="Too much feedback at once. Please try again shortly.",
-            headers={"Retry-After": str(decision.retry_after_seconds)},
-        )
-    rag_answer_observability.record_feedback(payload.helpful)
-    return Response(status_code=204)
-
-
-def _delete_analysis_rag_scope(owner_scope_id: str, analysis_id: str) -> int:
-    """Remove one analysis's temporary documents and its isolated retrieval collection."""
-    with rag_transaction_lock:
-        documents = document_store.pop_analysis(owner_scope_id, analysis_id)
-        rag_answer_cache.invalidate_documents(
-            document.metadata.document_id for document in documents
-        )
-        retrieval_service.drop_scope(owner_scope_id, analysis_id)
-        return len(documents)
-
-
-def delete_owner_rag_scopes(owner_scope_id: str) -> int:
-    """Remove all temporary RAG state when an anonymous guest expires."""
-    with rag_transaction_lock:
-        documents = document_store.pop_owner(owner_scope_id)
-        rag_answer_cache.invalidate_documents(
-            document.metadata.document_id for document in documents
-        )
-        retrieval_service.drop_owner(owner_scope_id)
-        return len(documents)

@@ -7,18 +7,8 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.guest_session import GuestSessionStore
-from api.rag_service import retrieval_service
 from api.routes import (
-    _delete_analysis_rag_scope,
     analysis_store,
-    answer_feedback_rate_limiter,
-    delete_owner_rag_scopes,
-    document_store,
-    rag_answer_cache,
-    rag_answer_daily_budget,
-    rag_answer_observability,
-    rag_answer_rate_limiter,
-    rag_transaction_lock,
     router,
     upload_rate_limiter,
     upload_store,
@@ -41,56 +31,17 @@ async def cleanup_expired_temporary_data() -> None:
     while True:
         await asyncio.sleep(60)
         removed_uploads = upload_store.cleanup_expired()
-        expired_analyses = analysis_store.pop_expired()
-        removed_analyses = len(expired_analyses)
-        removed_documents = 0
-        for analysis in expired_analyses:
-            removed_documents += _delete_analysis_rag_scope(
-                analysis.owner_scope_id, analysis.analysis_id
-            )
-        with rag_transaction_lock:
-            expired_documents = document_store.pop_expired()
-            removed_documents += len(expired_documents)
-            rag_answer_cache.invalidate_documents(
-                document.metadata.document_id for document in expired_documents
-            )
-            expired_analysis_scopes = set()
-            for document in expired_documents:
-                scope = (
-                    document.metadata.owner_scope_id,
-                    document.metadata.analysis_id,
-                )
-                expired_analysis_scopes.add(scope)
-                try:
-                    retrieval_service.delete_document(
-                        document.metadata.owner_scope_id,
-                        document.metadata.analysis_id,
-                        document.metadata.document_id,
-                    )
-                except Exception:
-                    logger.exception("Could not remove expired document from the evidence index")
-            for owner_scope_id, analysis_id in expired_analysis_scopes:
-                if not document_store.active_documents(owner_scope_id, analysis_id):
-                    retrieval_service.drop_scope(owner_scope_id, analysis_id)
+        removed_analyses = len(analysis_store.pop_expired())
         expired_guest_sessions = guest_session_store.pop_expired()
-        removed_guest_sessions = len(expired_guest_sessions)
         for session in expired_guest_sessions:
-            removed_documents += delete_owner_rag_scopes(session.session_id)
-            rag_answer_rate_limiter.drop_owner(session.session_id)
-            answer_feedback_rate_limiter.drop_owner(session.session_id)
             upload_rate_limiter.drop_owner(session.session_id)
-        rag_answer_rate_limiter.cleanup_expired()
-        answer_feedback_rate_limiter.cleanup_expired()
         upload_rate_limiter.cleanup_expired()
-        with rag_transaction_lock:
-            rag_answer_cache.cleanup_stale(document_store.live_active_document_ids())
-        if removed_uploads or removed_analyses or removed_documents or removed_guest_sessions:
+        if removed_uploads or removed_analyses or expired_guest_sessions:
             logger.info(
-                "Removed %d uploads, %d analyses, %d documents, and %d guest sessions",
+                "Removed %d uploads, %d analyses, and %d guest sessions",
                 removed_uploads,
                 removed_analyses,
-                removed_documents,
-                removed_guest_sessions,
+                len(expired_guest_sessions),
             )
 
 
@@ -108,13 +59,6 @@ async def lifespan(app: FastAPI):
             pass
         upload_store.clear()
         analysis_store.clear()
-        document_store.clear()
-        retrieval_service.clear()
-        rag_answer_observability.clear()
-        rag_answer_rate_limiter.clear()
-        answer_feedback_rate_limiter.clear()
-        rag_answer_cache.clear()
-        rag_answer_daily_budget.clear()
         upload_rate_limiter.clear()
         guest_session_store.clear()
 

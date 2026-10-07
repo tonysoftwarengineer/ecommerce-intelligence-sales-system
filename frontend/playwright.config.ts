@@ -47,11 +47,6 @@ export default defineConfig({
         "--lifespan off"
       ),
       cwd: projectRoot,
-      env: {
-        RAG_RETRIEVAL_BACKEND: "tfidf",
-        RAG_RELEVANCE_THRESHOLD: "0.12",
-        RAG_ANSWER_PROVIDER: "fake",
-      },
       url: `${apiBaseUrl}/api/v1/health`,
       reuseExistingServer,
       timeout: 30_000,

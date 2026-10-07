@@ -6,11 +6,6 @@ import type {
   MappingSuggestionsResponse,
   ProductDemandRequest,
   ProductDemandResponse,
-  RagAnswerResponse,
-  RagDocumentListResponse,
-  RagDocumentMetadata,
-  RagDocumentType,
-  RagRetrievalResponse,
   RevenueMode,
   SalesConfiguration,
   SchemaMappingResponse,
@@ -129,57 +124,6 @@ export function analyzeProductDemand(
     `/api/v1/analyses/${analysisId}/product-demand`,
     request,
   );
-}
-
-export function uploadRagDocument(
-  analysisId: string,
-  file: File,
-  documentType: RagDocumentType,
-): Promise<RagDocumentMetadata> {
-  const form = new FormData();
-  form.append("file", file);
-  form.append("document_type", documentType);
-  return fetchJson<RagDocumentMetadata>(`/api/v1/analyses/${analysisId}/rag/documents`, {
-    method: "POST",
-    body: form,
-  });
-}
-
-export function fetchRagDocuments(analysisId: string): Promise<RagDocumentListResponse> {
-  return fetchJson<RagDocumentListResponse>(`/api/v1/analyses/${analysisId}/rag/documents`);
-}
-
-export function retrieveRagEvidence(
-  analysisId: string,
-  question: string,
-): Promise<RagRetrievalResponse> {
-  return postJson<RagRetrievalResponse>(
-    `/api/v1/analyses/${analysisId}/rag/retrieve`,
-    { question },
-  );
-}
-
-export function getGroundedRagAnswer(
-  analysisId: string,
-  question: string,
-): Promise<RagAnswerResponse> {
-  return postJson<RagAnswerResponse>(
-    `/api/v1/analyses/${analysisId}/rag/answer`,
-    { question },
-  );
-}
-
-export async function sendAnswerFeedback(analysisId: string, helpful: boolean): Promise<void> {
-  // 204 No Content: fetchJson would fail parsing an empty body.
-  const response = await fetch(`${BASE_URL}/api/v1/analyses/${analysisId}/rag/answer-feedback`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ helpful }),
-  });
-  if (!response.ok) {
-    throw new Error(`Feedback was not saved (${response.status})`);
-  }
 }
 
 export function deleteUpload(uploadId: string): Promise<void> {

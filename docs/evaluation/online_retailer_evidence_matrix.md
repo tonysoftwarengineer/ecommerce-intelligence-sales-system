@@ -22,7 +22,7 @@ forecast withheld. It is not an independent small-retailer accuracy result.
 | Missing sale dates | The ten-CSV pack withholds forecasts when export coverage is unconfirmed; calendar tests preserve unknown dates instead of treating them as zero. | Whether actual retailer exports cover every open day and distinguish true zero sales from missing records. |
 | Stockouts | The ten-CSV pack withholds a forecast without stockout confirmation; calendar tests mark known stockout days as censored. | Real stockout logs, lost demand, and the effect on future unit forecasts. The browser does not yet provide a low-friction per-SKU stockout import. |
 | Category fallback | [Category tests](../../tests/test_product_demand_category_fallback.py) verify confirmation, compatible units, and non-overlap with product previews. | Independent category forecast accuracy and complete category membership. |
-| Policy-document answers | [RAG Phase 1 locked retrieval](rag_phase_1/chroma_locked_test.md) passed; synthetic browser and API tests cover citation verification and abstention. | Phase 2 real-provider locked answer quality and manual failure review; the recent hard-development run was blocked by provider limits. |
+| Policy-document answers | [RAG Phase 1 locked retrieval](rag_phase_1/chroma_locked_test.md) passed; synthetic browser and API tests cover citation verification and abstention. | Retired on 2026-10-07 ([ADR-018](../architecture/ADR-018-refocus-on-explaining-sales.md)); the Phase 2 locked answer evaluation never ran. Kept as history. |
 
 ## Next forecasting checkpoint
 
@@ -39,5 +39,4 @@ forecast withheld. It is not an independent small-retailer accuracy result.
    remain evaluation-only. Preserve the preview label until a new gate passes.
 
 The [fictional retailer walkthrough](../../tests/fixtures/retailer_demo/README.md)
-is a user-flow check, not independent forecast evidence. The separate RAG Phase
-2 locked evaluation remains pending regardless of retailer forecast results.
+is a user-flow check, not independent forecast evidence.

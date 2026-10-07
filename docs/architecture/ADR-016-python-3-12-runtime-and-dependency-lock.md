@@ -4,6 +4,10 @@
 **Date:** 2026-09-28  
 **Decider:** Project owner
 
+> **2026-10-07:** After [ADR-018](ADR-018-refocus-on-explaining-sales.md) removed document search, `torch` and the other embedding
+> packages are no longer dependencies, so the CPU-only `torch` install steps were removed from CI
+> and `Dockerfile.api`. The Python 3.12 runtime and the `constraints.txt` lock still apply.
+
 ## Context
 
 The application ran on Python 3.9, which no longer receives security fixes. The
